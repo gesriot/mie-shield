@@ -286,6 +286,14 @@ def test_inverse_worker_solves_input_modes(monkeypatch, input_mode, target_value
         assert solution["tau_check"] == pytest.approx(6.48, rel=2e-4)
         assert solution["transmittance_check"] == pytest.approx(math.exp(-6.48), rel=2e-4)
 
+    if input_mode in ("transmittance", "effective_transmittance"):
+        assert any("AVG MEC (справка)" in line for line in out.logs)
+
+    if input_mode == "transmittance" and wl_mode == "range":
+        assert any("exp(-AVG τ) (справка)" in line for line in out.logs)
+    if input_mode == "effective_transmittance" and wl_mode == "range":
+        assert any("exp(-AVG τ) (проверка)" in line for line in out.logs)
+
 
 def test_inverse_worker_reports_no_solution(monkeypatch):
     monkeypatch.setattr(ms, "compute_mec_for_d", lambda d_um, *_args: 2.0 / d_um)

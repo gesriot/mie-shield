@@ -449,6 +449,18 @@ def inverse_metric_units(input_mode: InverseInputMode) -> str:
     return "" if inverse_uses_transmittance(input_mode) else "м²/г"
 
 
+def inverse_solution_names(use_avg_spectrum: bool) -> tuple[str, str]:
+    return ("AVG α", "AVG τ") if use_avg_spectrum else ("α", "τ")
+
+
+def inverse_transmittance_is_reference(input_mode: InverseInputMode, use_avg_spectrum: bool) -> bool:
+    return input_mode == INV_TRANSMITTANCE and use_avg_spectrum
+
+
+def inverse_shows_avg_mec_reference(input_mode: InverseInputMode) -> bool:
+    return inverse_uses_transmittance(input_mode)
+
+
 def resolve_inverse_target(
     input_mode: InverseInputMode,
     target_value: float,
@@ -1122,12 +1134,16 @@ class InverseWorker(QThread):
                     self.log_signal.emit(f"  D = {sol['D_um']:.6f} мкм")
                     if sol['N'] is not None:
                         self.log_signal.emit(f"  N = {sol['N']:.6e} 1/м³")
-                        alpha_name = "AVG α" if use_avg_spectrum else "α"
-                        tau_name = "AVG τ" if use_avg_spectrum else "τ"
+                        alpha_name, tau_name = inverse_solution_names(use_avg_spectrum)
+                        transmittance_note = (
+                            "справка"
+                            if inverse_transmittance_is_reference(input_mode, use_avg_spectrum)
+                            else "проверка"
+                        )
                         self.log_signal.emit(f"  {alpha_name} (проверка) = {sol['alpha_check']:.6e} 1/м")
                         self.log_signal.emit(f"  {tau_name}=αL (проверка) = {sol['tau_check']:.6e}")
-                        self.log_signal.emit(f"  exp(-{tau_name}) = {sol['transmittance_check']:.6e}")
-                    if input_mode == INV_TRANSMITTANCE:
+                        self.log_signal.emit(f"  exp(-{tau_name}) ({transmittance_note}) = {sol['transmittance_check']:.6e}")
+                    if inverse_shows_avg_mec_reference(input_mode):
                         self.log_signal.emit(f"  AVG MEC (справка) = {sol['avg_mec_check']:.6e} м²/г")
                     self.log_signal.emit(f"  {metric_label} (проверка) = {sol['mec_check']:.6e}{units_suffix}")
                     self.log_signal.emit(f"  Относительная ошибка = {sol['rel_error']*100:.4f}%")
@@ -2594,47 +2610,26 @@ class MainWindow(QMainWindow):
                 f.write(hdr + "\n")
                 f.write("-" * len(hdr) + "\n")
 
-                sum_cext = 0.0
-                sum_alpha = 0.0
-                sum_tau = 0.0
-                sum_transmittance = 0.0
-                sum_mec = 0.0
-                sum_parts = {k: 0.0 for k in mats}
-                n_rows = 0
-
                 for r in data:
-                    tau = float(r.get("tau", r["alpha_1m"] * path_length_m))
-                    transmittance = float(r.get("transmittance", transmittance_from_tau(tau)))
-                    line = f"{r['wl']:10.4f} | {r['cext_um2']:15.6e} | {r['alpha_1m']:15.6e} | {tau:15.6e} | {transmittance:12.6e} | {r['mec_m2g']:15.6e}"
-                    parts = r["parts"]
+                    line = (
+                        f"{r['wl']:10.4f} | {r['cext_um2']:15.6e} | {r['alpha_1m']:15.6e} | "
+                        f"{r['tau']:15.6e} | {r['transmittance']:12.6e} | {r['mec_m2g']:15.6e}"
+                    )
                     for m in mats:
-                        line += f" | {parts[m]:15.6e}"
+                        line += f" | {r['parts'][m]:15.6e}"
                     f.write(line + "\n")
 
-                    sum_cext += float(r["cext_um2"])
-                    sum_alpha += float(r["alpha_1m"])
-                    sum_tau += tau
-                    sum_transmittance += transmittance
-                    sum_mec += float(r["mec_m2g"])
-                    for m in mats:
-                        sum_parts[m] += float(parts[m])
-                    n_rows += 1
-
-                if n_rows > 0:
-                    avg_cext = sum_cext / n_rows
-                    avg_alpha = sum_alpha / n_rows
-                    avg_tau = sum_tau / n_rows
-                    avg_transmittance = sum_transmittance / n_rows
-                    avg_mec = sum_mec / n_rows
-                    avg_parts = {m: (sum_parts[m] / n_rows) for m in mats}
-                    eff_transmittance = transmittance_from_tau(avg_tau)
-
+                summary = summarize_forward_rows(data, mats)
+                if summary:
                     f.write("-" * len(hdr) + "\n")
-                    avg_line = f"{'AVG':>10} | {avg_cext:15.6e} | {avg_alpha:15.6e} | {avg_tau:15.6e} | {avg_transmittance:12.6e} | {avg_mec:15.6e}"
+                    avg_line = (
+                        f"{'AVG':>10} | {summary['cext_um2']:15.6e} | {summary['alpha_1m']:15.6e} | "
+                        f"{summary['tau']:15.6e} | {summary['transmittance']:12.6e} | {summary['mec_m2g']:15.6e}"
+                    )
                     for m in mats:
-                        avg_line += f" | {avg_parts[m]:15.6e}"
+                        avg_line += f" | {summary['parts'][m]:15.6e}"
                     f.write(avg_line + "\n")
-                    f.write(f"T_eff=exp(-AVG tau): {eff_transmittance:.6e}\n")
+                    f.write(f"T_eff=exp(-AVG tau): {summary['eff_transmittance']:.6e}\n")
 
             QMessageBox.information(self, "OK", "Сохранено.")
         except Exception as e:
@@ -2656,22 +2651,30 @@ class MainWindow(QMainWindow):
             metric_label = res.get("metric_label", "MEC")
             metric_units = res.get("metric_units", "м²/г")
             wavelengths = res.get("wavelengths", [])
+            input_mode = p["input_mode"]
+            use_avg_spectrum = p.get("wl_mode") == INV_WL_RANGE
+            alpha_name, tau_name = inverse_solution_names(use_avg_spectrum)
+            transmittance_note = (
+                "reference"
+                if inverse_transmittance_is_reference(input_mode, use_avg_spectrum)
+                else "check"
+            )
             units_suffix = f" {metric_units}" if metric_units else ""
 
             with open(fn, "w", encoding="utf-8") as f:
                 f.write("MIE INVERSE PROBLEM REPORT (MONODISPERSE)\n")
                 f.write("=========================================\n\n")
 
-                if p.get("wl_mode") == "range":
+                if use_avg_spectrum:
                     f.write(f"Spectrum: [{p['wl_range'][0]}, {p['wl_range'][1]}] мкм, step={p['wl_range'][2]} мкм, N={len(wavelengths)}\n")
                 else:
                     f.write(f"λ = {p['lambda_um']:.4f} мкм\n")
                 f.write(f"L = {p.get('path_length_m', 1.0):.6f} м\n")
-                f.write(f"Input mode: {p['input_mode']}\n")
+                f.write(f"Input mode: {input_mode}\n")
                 f.write(f"Target value: {p['target_value']:.6e}\n")
-                if inverse_requires_mass_conc(p['input_mode']):
+                if inverse_requires_mass_conc(input_mode):
                     f.write(f"Mass concentration: {p['mass_conc_g']:.6e} г/м³\n")
-                if inverse_uses_transmittance(p['input_mode']) and res.get('equivalent_mec') is not None:
+                if inverse_uses_transmittance(input_mode) and res.get('equivalent_mec') is not None:
                     f.write(f"Equivalent -ln(T)/(rho_mass*L): {res['equivalent_mec']:.6e} м²/г\n")
                 f.write(f"Target {metric_label}: {target_mec:.6e}{units_suffix}\n")
                 f.write(f"Search range: [{p['D_min_um']:.4f}, {p['D_max_um']:.4f}] мкм\n")
@@ -2690,10 +2693,10 @@ class MainWindow(QMainWindow):
                     f.write(f"  D = {sol['D_um']:.6f} мкм\n")
                     if sol['N'] is not None:
                         f.write(f"  N = {sol['N']:.6e} 1/м³\n")
-                        f.write(f"  alpha (check) = {sol.get('alpha_check', float('nan')):.6e} 1/м\n")
-                        f.write(f"  tau=alpha*L (check) = {sol.get('tau_check', float('nan')):.6e}\n")
-                        f.write(f"  exp(-tau) (check) = {sol.get('transmittance_check', float('nan')):.6e}\n")
-                    if p['input_mode'] == INV_TRANSMITTANCE:
+                        f.write(f"  {alpha_name} (check) = {sol.get('alpha_check', float('nan')):.6e} 1/м\n")
+                        f.write(f"  {tau_name}=alpha*L (check) = {sol.get('tau_check', float('nan')):.6e}\n")
+                        f.write(f"  exp(-{tau_name}) ({transmittance_note}) = {sol.get('transmittance_check', float('nan')):.6e}\n")
+                    if inverse_shows_avg_mec_reference(input_mode):
                         f.write(f"  AVG MEC (reference) = {sol.get('avg_mec_check', float('nan')):.6e} м²/г\n")
                     f.write(f"  {metric_label} (check) = {sol['mec_check']:.6e}{units_suffix}\n")
                     f.write(f"  Relative error = {sol.get('rel_error', 0)*100:.4f}%\n")
