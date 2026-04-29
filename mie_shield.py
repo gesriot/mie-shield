@@ -1,5 +1,5 @@
 import sys
-from typing import Literal, TypeAlias
+from typing import Callable, Literal, TypeAlias
 
 import numpy as np
 import scipy.integrate
@@ -75,6 +75,7 @@ InverseWavelengthMode: TypeAlias = Literal["single", "range"]
 InverseInputMode: TypeAlias = Literal["mec", "alpha", "tau", "transmittance", "effective_transmittance"]
 OptimizationMode: TypeAlias = Literal["window_only", "full"]
 OptimizationCriterion: TypeAlias = Literal["mean", "min"]
+RIModel: TypeAlias = Callable[[float], complex]
 
 CONC_MASS: ConcMode = "Массовая"
 CONC_NUMBER: ConcMode = "Числовая"
@@ -103,171 +104,208 @@ def make_wavelengths(min_w, max_w, step):
     num = int(round((max_w - min_w) / step)) + 1
     return np.linspace(min_w, max_w, num)
 
-def get_ri(material, lam_um):
-    if material == "C":
-        ln_l = np.log(lam_um)
-        n = 1.811 + 0.1263 * ln_l + 0.0270 * ln_l**2 + 0.0417 * ln_l**3
-        k = 0.5821 + 0.1213 * ln_l + 0.2309 * ln_l**2 - 0.01 * ln_l**3
+def _ri_carbon(lam_um: float) -> complex:
+    ln_l = np.log(lam_um)
+    n = 1.811 + 0.1263 * ln_l + 0.0270 * ln_l**2 + 0.0417 * ln_l**3
+    k = 0.5821 + 0.1213 * ln_l + 0.2309 * ln_l**2 - 0.01 * ln_l**3
+    return complex(n, k)
+
+
+def _ri_mg(lam_um: float) -> complex:
+    if lam_um < 0.5:
+        return complex(0.37, 3.25)
+    if lam_um < 1.0:
+        n = 0.24 + 0.26 * (1.0 - lam_um) / 0.5
+        k = 4.42 + 1.17 * (1.0 - lam_um) / 0.5
         return complex(n, k)
-    if material == "Mg":
-        if lam_um < 0.5:
-            return complex(0.37, 3.25)
-        if lam_um < 1.0:
-            n = 0.24 + 0.26 * (1.0 - lam_um) / 0.5
-            k = 4.42 + 1.17 * (1.0 - lam_um) / 0.5
-            return complex(n, k)
-        if lam_um < 5.0:
-            return complex(0.10, 8.5 + 4.0 * (lam_um - 1.0) / 4.0)
-        if lam_um <= 24.8:
-            return complex(0.05, 12.5 + 10.0 * (lam_um - 5.0) / 19.8)
-        return complex(0.03, 22.5 + 5.0 * (lam_um - 24.8) / 5.2)
-    if material == "MgCl2":
-        if lam_um < 2.0:
-            return complex(1.675, 0.0)
-        if lam_um < 15.0:
-            return complex(1.675 - 0.075 * (lam_um - 2) / 13, 0.001 * (lam_um - 2) / 13)
-        if lam_um < 18.0:
-            return complex(1.55 - 0.3 * (lam_um - 15) / 3, 0.001 + 0.5 * (lam_um - 15) / 3)
-        return complex(1.25 - 0.15 * (lam_um - 18) / 12, 0.5 + 0.3 * (lam_um - 18) / 12)
-    if material == "ZnCl2":
-        # Anhydrous α-ZnCl2 (tetragonal I-4̄2d, sp.gr. 122). No measured n,k tables exist.
-        # Four-oscillator Lorentz model anchored to:
-        #   eps_inf = 2.87  (DFPT, Materials Project mp-22909, orientation-averaged)
-        #   eps_0   = 5.24  → Σ Δε_j = 2.37 (DFPT, same source; LST satisfied)
-        # Phonon frequencies from Angell & Wong, J.Chem.Phys. 53, 2053 (1970)
-        # and Janz & James, Spectrochim.Acta A 30, 717 (1974):
-        #   305 cm^-1  ν3 antisymm. Zn-Cl stretch (T2)  — main reststrahlen ~33 µm
-        #   230 cm^-1  ν1 symm. Zn-Cl stretch (A1)
-        #   105 cm^-1  ν2 Cl-Zn-Cl bend
-        #    60 cm^-1  network / acoustic-edge modes
-        # Cross-check at sodium-D line: √eps_inf = 1.694 vs CRC n_avg = 1.692 (uniaxial+,
-        # n_o=1.681, n_e=1.713). Single Lorentz model is used across the full 0.4–50 µm
-        # range; in the visible/near-IR all phonon contributions are negligible and
-        # n(λ) → √eps_inf with k → 0 to numerical precision.
-        nu = 1e4 / lam_um
-        eps_inf = 2.87
-        osc_nu0 = [305.0, 230.0, 105.0, 60.0]
-        osc_de  = [1.60, 0.50, 0.20, 0.07]
-        osc_g   = [25.0, 20.0, 30.0, 30.0]
-        eps = eps_inf + 0j
-        for nu0, de, gj in zip(osc_nu0, osc_de, osc_g):
-            eps += de * nu0**2 / (nu0**2 - nu**2 - 1j * nu * gj)
-        nc = np.sqrt(eps)
-        return complex(abs(nc.real), abs(nc.imag))
-    if material == "MgF2":
-        if lam_um <= 7.0:
-            ls = lam_um**2
-            n_sq = (
-                1
-                + (0.48755108 * ls) / (ls - 0.04338408**2)
-                + (0.39875031 * ls) / (ls - 0.09461442**2)
-                + (2.3120353 * ls) / (ls - 23.793604**2)
-            )
-            return complex(np.sqrt(n_sq), 0.0)
-        if lam_um < 10.0:
-            return complex(1.31 - 0.1 * (lam_um - 7) / 3, 0.05 * (lam_um - 7) / 3)
-        if lam_um < 20.0:
-            return complex(1.21 - 0.2 * (lam_um - 10) / 10, 0.05 + 0.3 * (lam_um - 10) / 10)
-        return complex(1.01 - 0.15 * (lam_um - 20) / 10, 0.35 + 0.4 * (lam_um - 20) / 10)
-    if material == "Al4C3":
-        if lam_um <= 5.0:
-            ls = lam_um**2
-            n_sq = 1 + (2.8 * ls) / (ls - 0.02**2) + (0.5 * ls) / (ls - 0.1**2) + (1.2 * ls) / (ls - 15.0**2)
-            return complex(np.sqrt(n_sq), 0.0)
-        if lam_um < 10.0:
-            return complex(2.25 - 0.15 * (lam_um - 5) / 5, 0.08 * (lam_um - 5) / 5)
-        if lam_um < 20.0:
-            return complex(2.10 - 0.25 * (lam_um - 10) / 10, 0.08 + 0.45 * (lam_um - 10) / 10)
-        return complex(1.85 - 0.20 * (lam_um - 20) / 10, 0.53 + 0.55 * (lam_um - 20) / 10)
-    if material == "Al":
-        hc_eV_um = 1.23984198
-        omega = hc_eV_um / lam_um
-        wp = 14.98
-        f0, G0 = 0.523, 0.047
-        eps = 1.0 - f0 * wp**2 / (omega * (omega + 1j * G0))
-        ld_f = [0.227, 0.050, 0.166, 0.030]
-        ld_G = [0.333, 0.312, 1.351, 3.382]
-        ld_w = [0.162, 1.544, 1.808, 3.473]
-        for fj, Gj, wj in zip(ld_f, ld_G, ld_w):
-            eps += fj * wp**2 / (wj**2 - omega**2 - 1j * omega * Gj)
-        nc = np.sqrt(eps)
-        return complex(abs(nc.real), abs(nc.imag))
-    if material == "MgO":
-        if lam_um <= 5.4:
-            ls = lam_um**2
-            n_sq = 2.956362 + 0.02195770 / (ls - 0.01428322) - 0.01062387 * ls - 2.04968e-5 * ls**2
-            if n_sq < 1.0:
-                n_sq = 1.0
-            return complex(np.sqrt(n_sq), 0.0)
-        nu = 1e4 / lam_um
-        eps_inf = 3.014
-        osc_nu0 = [384.0, 405.0, 429.0, 590.0]
-        osc_f   = [0.20, 1.85, 0.12, 0.10]
-        osc_g   = [19.0, 19.0, 19.0, 25.0]
-        eps = eps_inf + 0j
-        for nu0, fj, gj in zip(osc_nu0, osc_f, osc_g):
-            eps += fj * nu0**2 / (nu0**2 - nu**2 - 1j * nu * gj)
-        nc = np.sqrt(eps)
-        return complex(abs(nc.real), abs(nc.imag))
-    if material == "Al2O3":
-        if lam_um <= 5.0:
-            ls = lam_um**2
-            B_o = [1.4313493, 0.65054713, 5.3414021]
-            C_o = [0.0726631, 0.1193242, 18.028251]
-            B_e = [1.5039759, 0.55069141, 6.5927379]
-            C_e = [0.0740288, 0.1216529, 20.072248]
+    if lam_um < 5.0:
+        return complex(0.10, 8.5 + 4.0 * (lam_um - 1.0) / 4.0)
+    if lam_um <= 24.8:
+        return complex(0.05, 12.5 + 10.0 * (lam_um - 5.0) / 19.8)
+    return complex(0.03, 22.5 + 5.0 * (lam_um - 24.8) / 5.2)
+
+
+def _ri_mgcl2(lam_um: float) -> complex:
+    if lam_um < 2.0:
+        return complex(1.675, 0.0)
+    if lam_um < 15.0:
+        return complex(1.675 - 0.075 * (lam_um - 2) / 13, 0.001 * (lam_um - 2) / 13)
+    if lam_um < 18.0:
+        return complex(1.55 - 0.3 * (lam_um - 15) / 3, 0.001 + 0.5 * (lam_um - 15) / 3)
+    return complex(1.25 - 0.15 * (lam_um - 18) / 12, 0.5 + 0.3 * (lam_um - 18) / 12)
+
+
+def _ri_zncl2(lam_um: float) -> complex:
+    # Anhydrous α-ZnCl2 (tetragonal I-4̄2d, sp.gr. 122). No measured n,k tables exist.
+    # Four-oscillator Lorentz model anchored to:
+    #   eps_inf = 2.87  (DFPT, Materials Project mp-22909, orientation-averaged)
+    #   eps_0   = 5.24  → Σ Δε_j = 2.37 (DFPT, same source; LST satisfied)
+    # Phonon frequencies from Angell & Wong, J.Chem.Phys. 53, 2053 (1970)
+    # and Janz & James, Spectrochim.Acta A 30, 717 (1974):
+    #   305 cm^-1  ν3 antisymm. Zn-Cl stretch (T2)  — main reststrahlen ~33 µm
+    #   230 cm^-1  ν1 symm. Zn-Cl stretch (A1)
+    #   105 cm^-1  ν2 Cl-Zn-Cl bend
+    #    60 cm^-1  network / acoustic-edge modes
+    # Cross-check at sodium-D line: √eps_inf = 1.694 vs CRC n_avg = 1.692 (uniaxial+,
+    # n_o=1.681, n_e=1.713). Single Lorentz model is used across the full 0.4–50 µm
+    # range; in the visible/near-IR all phonon contributions are negligible and
+    # n(λ) → √eps_inf with k → 0 to numerical precision.
+    nu = 1e4 / lam_um
+    eps_inf = 2.87
+    osc_nu0 = [305.0, 230.0, 105.0, 60.0]
+    osc_de  = [1.60, 0.50, 0.20, 0.07]
+    osc_g   = [25.0, 20.0, 30.0, 30.0]
+    eps = eps_inf + 0j
+    for nu0, de, gj in zip(osc_nu0, osc_de, osc_g):
+        eps += de * nu0**2 / (nu0**2 - nu**2 - 1j * nu * gj)
+    nc = np.sqrt(eps)
+    return complex(abs(nc.real), abs(nc.imag))
+
+
+def _ri_mgf2(lam_um: float) -> complex:
+    if lam_um <= 7.0:
+        ls = lam_um**2
+        n_sq = (
+            1
+            + (0.48755108 * ls) / (ls - 0.04338408**2)
+            + (0.39875031 * ls) / (ls - 0.09461442**2)
+            + (2.3120353 * ls) / (ls - 23.793604**2)
+        )
+        return complex(np.sqrt(n_sq), 0.0)
+    if lam_um < 10.0:
+        return complex(1.31 - 0.1 * (lam_um - 7) / 3, 0.05 * (lam_um - 7) / 3)
+    if lam_um < 20.0:
+        return complex(1.21 - 0.2 * (lam_um - 10) / 10, 0.05 + 0.3 * (lam_um - 10) / 10)
+    return complex(1.01 - 0.15 * (lam_um - 20) / 10, 0.35 + 0.4 * (lam_um - 20) / 10)
+
+
+def _ri_al4c3(lam_um: float) -> complex:
+    if lam_um <= 5.0:
+        ls = lam_um**2
+        n_sq = 1 + (2.8 * ls) / (ls - 0.02**2) + (0.5 * ls) / (ls - 0.1**2) + (1.2 * ls) / (ls - 15.0**2)
+        return complex(np.sqrt(n_sq), 0.0)
+    if lam_um < 10.0:
+        return complex(2.25 - 0.15 * (lam_um - 5) / 5, 0.08 * (lam_um - 5) / 5)
+    if lam_um < 20.0:
+        return complex(2.10 - 0.25 * (lam_um - 10) / 10, 0.08 + 0.45 * (lam_um - 10) / 10)
+    return complex(1.85 - 0.20 * (lam_um - 20) / 10, 0.53 + 0.55 * (lam_um - 20) / 10)
+
+
+def _ri_al(lam_um: float) -> complex:
+    hc_eV_um = 1.23984198
+    omega = hc_eV_um / lam_um
+    wp = 14.98
+    f0, G0 = 0.523, 0.047
+    eps = 1.0 - f0 * wp**2 / (omega * (omega + 1j * G0))
+    ld_f = [0.227, 0.050, 0.166, 0.030]
+    ld_G = [0.333, 0.312, 1.351, 3.382]
+    ld_w = [0.162, 1.544, 1.808, 3.473]
+    for fj, Gj, wj in zip(ld_f, ld_G, ld_w):
+        eps += fj * wp**2 / (wj**2 - omega**2 - 1j * omega * Gj)
+    nc = np.sqrt(eps)
+    return complex(abs(nc.real), abs(nc.imag))
+
+
+def _ri_mgo(lam_um: float) -> complex:
+    if lam_um <= 5.4:
+        ls = lam_um**2
+        n_sq = 2.956362 + 0.02195770 / (ls - 0.01428322) - 0.01062387 * ls - 2.04968e-5 * ls**2
+        if n_sq < 1.0:
+            n_sq = 1.0
+        return complex(np.sqrt(n_sq), 0.0)
+    nu = 1e4 / lam_um
+    eps_inf = 3.014
+    osc_nu0 = [384.0, 405.0, 429.0, 590.0]
+    osc_f   = [0.20, 1.85, 0.12, 0.10]
+    osc_g   = [19.0, 19.0, 19.0, 25.0]
+    eps = eps_inf + 0j
+    for nu0, fj, gj in zip(osc_nu0, osc_f, osc_g):
+        eps += fj * nu0**2 / (nu0**2 - nu**2 - 1j * nu * gj)
+    nc = np.sqrt(eps)
+    return complex(abs(nc.real), abs(nc.imag))
+
+
+def _ri_al2o3(lam_um: float) -> complex:
+    if lam_um <= 5.0:
+        ls = lam_um**2
+        B_o = [1.4313493, 0.65054713, 5.3414021]
+        C_o = [0.0726631, 0.1193242, 18.028251]
+        B_e = [1.5039759, 0.55069141, 6.5927379]
+        C_e = [0.0740288, 0.1216529, 20.072248]
+        n2_o = 1.0
+        n2_e = 1.0
+        for Bi, Ci in zip(B_o, C_o):
+            n2_o += Bi * ls / (ls - Ci**2)
+        for Bi, Ci in zip(B_e, C_e):
+            n2_e += Bi * ls / (ls - Ci**2)
+        if n2_o < 1.0:
             n2_o = 1.0
+        if n2_e < 1.0:
             n2_e = 1.0
-            for Bi, Ci in zip(B_o, C_o):
-                n2_o += Bi * ls / (ls - Ci**2)
-            for Bi, Ci in zip(B_e, C_e):
-                n2_e += Bi * ls / (ls - Ci**2)
-            if n2_o < 1.0:
-                n2_o = 1.0
-            if n2_e < 1.0:
-                n2_e = 1.0
-            n_avg = np.sqrt((2.0 * n2_o + n2_e) / 3.0)
-            return complex(n_avg, 0.0)
-        nu = 1e4 / lam_um
-        o_einf = 3.064
-        o_nu0 = [385.0, 442.0, 569.0, 635.0]
-        o_de  = [0.30, 2.70, 3.00, 0.30]
-        o_gr  = [0.015, 0.010, 0.020, 0.020]
-        eps_o = o_einf + 0j
-        for nu0, de, gr in zip(o_nu0, o_de, o_gr):
-            gamma = gr * nu0
-            eps_o += de * nu0**2 / (nu0**2 - nu**2 - 1j * nu * gamma)
-        e_einf = 3.077
-        e_nu0 = [400.0, 583.0]
-        e_de  = [6.80, 1.70]
-        e_gr  = [0.020, 0.035]
-        eps_e = e_einf + 0j
-        for nu0, de, gr in zip(e_nu0, e_de, e_gr):
-            gamma = gr * nu0
-            eps_e += de * nu0**2 / (nu0**2 - nu**2 - 1j * nu * gamma)
-        eps_poly = (2.0 * eps_o + eps_e) / 3.0
-        nc = np.sqrt(eps_poly)
-        return complex(abs(nc.real), abs(nc.imag))
-    if material == "CuZn":
-        _cuzn_lam = np.array([
-            0.21, 0.22, 0.24, 0.26, 0.28, 0.30, 0.33, 0.36, 0.40,
-            0.45, 0.50, 0.55, 0.60, 0.65, 0.70, 0.80, 0.90, 1.00,
-            1.50, 2.00, 3.00, 5.00, 8.00, 10.0, 20.0, 30.0, 40.0, 50.0,
-        ])
-        _cuzn_n = np.array([
-            1.560, 1.490, 1.550, 1.510, 1.460, 1.470, 1.480, 1.450, 1.445,
-            1.094, 0.686, 0.527, 0.450, 0.444, 0.446, 0.473, 0.523, 0.603,
-            1.044, 1.711, 3.222, 7.097, 13.38, 16.88, 35.82, 54.72, 80.14, 110.5,
-        ])
-        _cuzn_k = np.array([
-            1.880, 1.810, 1.750, 1.720, 1.680, 1.700, 1.730, 1.780, 1.805,
-            1.829, 2.250, 2.765, 3.253, 3.695, 4.106, 4.890, 5.650, 6.367,
-            9.810, 13.10, 19.12, 29.90, 43.34, 51.60, 86.38, 118.7, 148.2, 170.2,
-        ])
-        n = float(np.interp(lam_um, _cuzn_lam, _cuzn_n))
-        k = float(np.interp(lam_um, _cuzn_lam, _cuzn_k))
-        return complex(n, k)
-    return complex(1.5, 0.0)
+        n_avg = np.sqrt((2.0 * n2_o + n2_e) / 3.0)
+        return complex(n_avg, 0.0)
+    nu = 1e4 / lam_um
+    o_einf = 3.064
+    o_nu0 = [385.0, 442.0, 569.0, 635.0]
+    o_de  = [0.30, 2.70, 3.00, 0.30]
+    o_gr  = [0.015, 0.010, 0.020, 0.020]
+    eps_o = o_einf + 0j
+    for nu0, de, gr in zip(o_nu0, o_de, o_gr):
+        gamma = gr * nu0
+        eps_o += de * nu0**2 / (nu0**2 - nu**2 - 1j * nu * gamma)
+    e_einf = 3.077
+    e_nu0 = [400.0, 583.0]
+    e_de  = [6.80, 1.70]
+    e_gr  = [0.020, 0.035]
+    eps_e = e_einf + 0j
+    for nu0, de, gr in zip(e_nu0, e_de, e_gr):
+        gamma = gr * nu0
+        eps_e += de * nu0**2 / (nu0**2 - nu**2 - 1j * nu * gamma)
+    eps_poly = (2.0 * eps_o + eps_e) / 3.0
+    nc = np.sqrt(eps_poly)
+    return complex(abs(nc.real), abs(nc.imag))
+
+
+def _ri_cuzn(lam_um: float) -> complex:
+    cuzn_lam = np.array([
+        0.21, 0.22, 0.24, 0.26, 0.28, 0.30, 0.33, 0.36, 0.40,
+        0.45, 0.50, 0.55, 0.60, 0.65, 0.70, 0.80, 0.90, 1.00,
+        1.50, 2.00, 3.00, 5.00, 8.00, 10.0, 20.0, 30.0, 40.0, 50.0,
+    ])
+    cuzn_n = np.array([
+        1.560, 1.490, 1.550, 1.510, 1.460, 1.470, 1.480, 1.450, 1.445,
+        1.094, 0.686, 0.527, 0.450, 0.444, 0.446, 0.473, 0.523, 0.603,
+        1.044, 1.711, 3.222, 7.097, 13.38, 16.88, 35.82, 54.72, 80.14, 110.5,
+    ])
+    cuzn_k = np.array([
+        1.880, 1.810, 1.750, 1.720, 1.680, 1.700, 1.730, 1.780, 1.805,
+        1.829, 2.250, 2.765, 3.253, 3.695, 4.106, 4.890, 5.650, 6.367,
+        9.810, 13.10, 19.12, 29.90, 43.34, 51.60, 86.38, 118.7, 148.2, 170.2,
+    ])
+    n = float(np.interp(lam_um, cuzn_lam, cuzn_n))
+    k = float(np.interp(lam_um, cuzn_lam, cuzn_k))
+    return complex(n, k)
+
+
+RI_MODELS: dict[str, RIModel] = {
+    "C": _ri_carbon,
+    "Mg": _ri_mg,
+    "MgCl2": _ri_mgcl2,
+    "ZnCl2": _ri_zncl2,
+    "MgF2": _ri_mgf2,
+    "Al4C3": _ri_al4c3,
+    "Al": _ri_al,
+    "MgO": _ri_mgo,
+    "Al2O3": _ri_al2o3,
+    "CuZn": _ri_cuzn,
+}
+
+
+def get_ri(material: str, lam_um: float) -> complex:
+    model = RI_MODELS.get(material)
+    if model is None:
+        return complex(1.5, 0.0)
+    return model(lam_um)
 
 def lognormal_pdf(d, d_g, sigma_g):
     d = np.maximum(d, 1e-12)
