@@ -1,4 +1,6 @@
 import sys
+from typing import Literal, TypeAlias
+
 import numpy as np
 import scipy.integrate
 import scipy.stats
@@ -66,6 +68,34 @@ DEFAULTS = {
     "INV_D_MAX": 50.0,
     "INV_N_SCAN": 1000,
 }
+
+ConcMode: TypeAlias = Literal["Массовая", "Числовая"]
+DistributionMode: TypeAlias = Literal["monodisperse", "lognormal", "custom"]
+InverseWavelengthMode: TypeAlias = Literal["single", "range"]
+InverseInputMode: TypeAlias = Literal["mec", "alpha", "tau", "transmittance", "effective_transmittance"]
+OptimizationMode: TypeAlias = Literal["window_only", "full"]
+OptimizationCriterion: TypeAlias = Literal["mean", "min"]
+
+CONC_MASS: ConcMode = "Массовая"
+CONC_NUMBER: ConcMode = "Числовая"
+
+DIST_MONODISPERSE: DistributionMode = "monodisperse"
+DIST_LOGNORMAL: DistributionMode = "lognormal"
+DIST_CUSTOM: DistributionMode = "custom"
+
+INV_WL_SINGLE: InverseWavelengthMode = "single"
+INV_WL_RANGE: InverseWavelengthMode = "range"
+
+INV_MEC: InverseInputMode = "mec"
+INV_ALPHA: InverseInputMode = "alpha"
+INV_TAU: InverseInputMode = "tau"
+INV_TRANSMITTANCE: InverseInputMode = "transmittance"
+INV_EFFECTIVE_TRANSMITTANCE: InverseInputMode = "effective_transmittance"
+
+OPT_WINDOW_ONLY: OptimizationMode = "window_only"
+OPT_FULL: OptimizationMode = "full"
+OPT_MEAN: OptimizationCriterion = "mean"
+OPT_MIN: OptimizationCriterion = "min"
 
 def make_wavelengths(min_w, max_w, step):
     if step <= 0 or max_w <= min_w:
@@ -352,7 +382,7 @@ class CalculationWorker(QThread):
             if log_every > 1:
                 self.log_signal.emit(f"ℹ️ Таблица: каждая {log_every}-я точка из {wavelengths.size}")
 
-            conc_mode = p.get("conc_mode", "Массовая")
+            conc_mode = p.get("conc_mode", CONC_MASS)
             conc_value = float(p.get("conc_value", 0.01))
             if not np.isfinite(conc_value) or conc_value <= 0:
                 raise ValueError("Концентрация должна быть > 0.")
@@ -380,7 +410,7 @@ class CalculationWorker(QThread):
                 if not np.isfinite(avg_mass_mixture) or avg_mass_mixture <= 0:
                     raise ValueError("Средняя масса частицы некорректна (<=0 или NaN).")
 
-                if conc_mode == "Числовая":
+                if conc_mode == CONC_NUMBER:
                     num_conc = conc_value
                     mass_conc_g = (num_conc * avg_mass_mixture) * 1000.0
                 else:
@@ -495,11 +525,11 @@ class CalculationWorker(QThread):
                 d_min_um = max(p["d_range"][0], 1e-3)
                 d_max_um = p["d_range"][1]
                 N_D = p.get("points_d", 300)
-                dist_type = p.get("dist_type", "lognormal")
+                dist_type = p.get("dist_type", DIST_LOGNORMAL)
 
                 diameters_um = np.geomspace(d_min_um, d_max_um, N_D)
 
-                if dist_type == "custom":
+                if dist_type == DIST_CUSTOM:
                     c_A = p["custom_A"]
                     c_mu = p["custom_mu"]
                     c_sigma = p["custom_sigma"]
@@ -573,7 +603,7 @@ class CalculationWorker(QThread):
                 if not np.isfinite(avg_mass_mixture) or avg_mass_mixture <= 0:
                     raise ValueError("Средняя масса частицы некорректна (<=0 или NaN).")
 
-                if conc_mode == "Числовая":
+                if conc_mode == CONC_NUMBER:
                     num_conc = conc_value
                     mass_conc_g = (num_conc * avg_mass_mixture) * 1000.0
                 else:
@@ -729,7 +759,7 @@ class InverseWorker(QThread):
                 rho_avg += float(frac) * float(rho_by_code.get(mat_code, 2000.0))
 
             wl_mode = p.get("wl_mode", "single")
-            if wl_mode == "range":
+            if wl_mode == INV_WL_RANGE:
                 wl_min, wl_max, wl_step = p["wl_range"]
                 wavelengths = make_wavelengths(wl_min, wl_max, wl_step)
                 if wavelengths.size == 0:
@@ -747,24 +777,24 @@ class InverseWorker(QThread):
 
             use_avg_spectrum = wavelengths.size > 1
             metric_label = (
-                "AVG T" if input_mode == "transmittance" and use_avg_spectrum
-                else "T_eff" if input_mode == "effective_transmittance" and use_avg_spectrum
-                else "T" if input_mode in ("transmittance", "effective_transmittance")
+                "AVG T" if input_mode == INV_TRANSMITTANCE and use_avg_spectrum
+                else "T_eff" if input_mode == INV_EFFECTIVE_TRANSMITTANCE and use_avg_spectrum
+                else "T" if input_mode in (INV_TRANSMITTANCE, INV_EFFECTIVE_TRANSMITTANCE)
                 else ("AVG MEC" if use_avg_spectrum else "MEC")
             )
-            metric_units = "" if input_mode in ("transmittance", "effective_transmittance") else "м²/г"
+            metric_units = "" if input_mode in (INV_TRANSMITTANCE, INV_EFFECTIVE_TRANSMITTANCE) else "м²/г"
             equivalent_mec = None
 
-            if input_mode in ("alpha", "tau", "transmittance", "effective_transmittance"):
+            if input_mode in (INV_ALPHA, INV_TAU, INV_TRANSMITTANCE, INV_EFFECTIVE_TRANSMITTANCE):
                 mass_conc_g = float(p["mass_conc_g"])
                 if mass_conc_g <= 0:
                     raise ValueError("Массовая концентрация должна быть > 0.")
-                if input_mode in ("transmittance", "effective_transmittance"):
+                if input_mode in (INV_TRANSMITTANCE, INV_EFFECTIVE_TRANSMITTANCE):
                     if not (0.0 < target_value <= 1.0):
                         raise ValueError("Пропускание T должно быть в диапазоне (0, 1].")
                     target_mec = target_value
                     equivalent_mec = -np.log(target_value) / (mass_conc_g * path_length_m)
-                elif input_mode == "tau":
+                elif input_mode == INV_TAU:
                     target_mec = target_value / (mass_conc_g * path_length_m)
                 else:
                     target_mec = target_value / mass_conc_g
@@ -784,21 +814,21 @@ class InverseWorker(QThread):
             else:
                 self.log_signal.emit(f"λ = {wavelengths[0]:.4f} мкм")
             self.log_signal.emit(f"L = {path_length_m:.4f} м")
-            if input_mode == "alpha":
+            if input_mode == INV_ALPHA:
                 alpha_name = "AVG α" if use_avg_spectrum else "α"
                 tau_name = "AVG τ" if use_avg_spectrum else "τ"
                 self.log_signal.emit(f"{alpha_name} (цель) = {target_value:.6e} 1/м")
                 self.log_signal.emit(f"ρ_mass = {mass_conc_g:.6e} г/м³")
                 self.log_signal.emit(f"{tau_name} (для этой трассы) = {target_value * path_length_m:.6e}")
-            elif input_mode == "tau":
+            elif input_mode == INV_TAU:
                 tau_name = "AVG τ=αL" if use_avg_spectrum else "τ=αL"
                 self.log_signal.emit(f"{tau_name} (цель) = {target_value:.6e}")
                 self.log_signal.emit(f"ρ_mass = {mass_conc_g:.6e} г/м³")
-            elif input_mode == "transmittance":
+            elif input_mode == INV_TRANSMITTANCE:
                 self.log_signal.emit(f"{metric_label} (цель) = {target_value:.6e}")
                 self.log_signal.emit(f"ρ_mass = {mass_conc_g:.6e} г/м³")
                 self.log_signal.emit(f"Справочно: -ln(T)/(ρ_mass·L) = {equivalent_mec:.6e} м²/г")
-            elif input_mode == "effective_transmittance":
+            elif input_mode == INV_EFFECTIVE_TRANSMITTANCE:
                 self.log_signal.emit(f"{metric_label}=exp(-AVG τ) (цель) = {target_value:.6e}")
                 self.log_signal.emit(f"ρ_mass = {mass_conc_g:.6e} г/м³")
                 self.log_signal.emit(f"Эквивалентная AVG MEC = {equivalent_mec:.6e} м²/г")
@@ -822,11 +852,11 @@ class InverseWorker(QThread):
                 vals = compute_mec_spectrum(D_um)
                 if vals is None:
                     return np.nan
-                if input_mode == "transmittance":
+                if input_mode == INV_TRANSMITTANCE:
                     tau_vals = vals * mass_conc_g * path_length_m
                     tau_vals = np.minimum(tau_vals, 745.0)
                     return float(np.mean(np.exp(-tau_vals)))
-                if input_mode == "effective_transmittance":
+                if input_mode == INV_EFFECTIVE_TRANSMITTANCE:
                     tau_avg = float(np.mean(vals) * mass_conc_g * path_length_m)
                     return 0.0 if tau_avg > 745 else float(np.exp(-tau_avg))
                 return float(np.mean(vals))
@@ -968,7 +998,7 @@ class InverseWorker(QThread):
                     mec_spectrum_check = compute_mec_spectrum(D_solution)
                     avg_mec_check = float(np.mean(mec_spectrum_check)) if mec_spectrum_check is not None else np.nan
 
-                    if input_mode in ("alpha", "tau", "transmittance", "effective_transmittance"):
+                    if input_mode in (INV_ALPHA, INV_TAU, INV_TRANSMITTANCE, INV_EFFECTIVE_TRANSMITTANCE):
                         N_solution = (mass_conc_g * 1e-3) / m_particle
                         alpha_check = avg_mec_check * mass_conc_g
                         tau_check = alpha_check * path_length_m
@@ -1015,7 +1045,7 @@ class InverseWorker(QThread):
                         self.log_signal.emit(f"  {alpha_name} (проверка) = {sol['alpha_check']:.6e} 1/м")
                         self.log_signal.emit(f"  {tau_name}=αL (проверка) = {sol['tau_check']:.6e}")
                         self.log_signal.emit(f"  exp(-{tau_name}) = {sol['transmittance_check']:.6e}")
-                    if input_mode == "transmittance":
+                    if input_mode == INV_TRANSMITTANCE:
                         self.log_signal.emit(f"  AVG MEC (справка) = {sol['avg_mec_check']:.6e} м²/г")
                     self.log_signal.emit(f"  {metric_label} (проверка) = {sol['mec_check']:.6e}{units_suffix}")
                     self.log_signal.emit(f"  Относительная ошибка = {sol['rel_error']*100:.4f}%")
@@ -1154,9 +1184,9 @@ class OptimizationWorker(QThread):
 
             # Phase 1.5: Build MEC(D_MIN, D_MAX) landscape
             self.log_signal.emit("Фаза 1.5: Построение карты MEC·L(D_min, D_max)...")
-            mu_for_map = mu_fixed if mode == "window_only" else (
+            mu_for_map = mu_fixed if mode == OPT_WINDOW_ONLY else (
                 (mu_range[0] + mu_range[1]) / 2.0 if mu_range else 0.0)
-            sigma_for_map = sigma_fixed if mode == "window_only" else (
+            sigma_for_map = sigma_fixed if mode == OPT_WINDOW_ONLY else (
                 (sigma_range[0] + sigma_range[1]) / 2.0 if sigma_range else 1.0)
 
             dmin_grid = np.geomspace(D_scan_min, D_scan_max, N_window_grid)
@@ -1185,7 +1215,7 @@ class OptimizationWorker(QThread):
                         pts = np.column_stack([log_d_g, np.full(N_D_points, wavelengths[k])])
                         mec_wl[k] = scipy.integrate.trapz(interp(pts) * pn, d_g)
                     score_wl = mec_wl * path_length_m
-                    if criterion == "mean":
+                    if criterion == OPT_MEAN:
                         window_mec[i, j] = np.mean(score_wl)
                     else:
                         window_mec[i, j] = np.min(score_wl)
@@ -1212,7 +1242,7 @@ class OptimizationWorker(QThread):
             def objective(x):
                 if self.is_aborted:
                     return 0.0
-                if mode == "window_only":
+                if mode == OPT_WINDOW_ONLY:
                     d_min_opt, d_max_opt = x[0], x[1]
                     mu_val = mu_fixed
                     sigma_val = sigma_fixed
@@ -1243,13 +1273,13 @@ class OptimizationWorker(QThread):
 
                 score_per_wl = mec_per_wl * path_length_m
 
-                if criterion == "mean":
+                if criterion == OPT_MEAN:
                     return -np.mean(score_per_wl)
                 else:
                     return -np.min(score_per_wl)
 
             # Build bounds
-            if mode == "window_only":
+            if mode == OPT_WINDOW_ONLY:
                 bounds = [
                     (D_scan_min, D_scan_max * 0.9),
                     (D_scan_min * 1.1, D_scan_max),
@@ -1272,7 +1302,7 @@ class OptimizationWorker(QThread):
                 self.finished_signal.emit(False, "Остановлено пользователем.")
                 return
 
-            if mode == "window_only":
+            if mode == OPT_WINDOW_ONLY:
                 d_min_best, d_max_best = result.x[0], result.x[1]
                 mu_best, sigma_best = mu_fixed, sigma_fixed
             else:
@@ -1412,8 +1442,10 @@ class MainWindow(QMainWindow):
         l1 = QFormLayout(g1)
 
         self.dist_type_combo = QComboBox()
-        self.dist_type_combo.addItems(["Монодисперс", "Лог-нормальное", "Кастомное"])
-        self.dist_type_combo.setCurrentText("Лог-нормальное")
+        self.dist_type_combo.addItem("Монодисперс", DIST_MONODISPERSE)
+        self.dist_type_combo.addItem("Лог-нормальное", DIST_LOGNORMAL)
+        self.dist_type_combo.addItem("Кастомное", DIST_CUSTOM)
+        self.dist_type_combo.setCurrentIndex(self.dist_type_combo.findData(DIST_LOGNORMAL))
         self.dist_type_combo.currentTextChanged.connect(self._on_dist_type_changed)
         l1.addRow("Тип распределения:", self.dist_type_combo)
 
@@ -1501,8 +1533,9 @@ class MainWindow(QMainWindow):
         layout.addWidget(g_conc)
         l_conc = QFormLayout(g_conc)
         self.conc_mode = QComboBox()
-        self.conc_mode.addItems(["Числовая", "Массовая"])
-        self.conc_mode.setCurrentText("Массовая")
+        self.conc_mode.addItem("Числовая", CONC_NUMBER)
+        self.conc_mode.addItem("Массовая", CONC_MASS)
+        self.conc_mode.setCurrentIndex(self.conc_mode.findData(CONC_MASS))
         self.conc_value = QDoubleSpinBox()
         self.conc_value.setLocale(QLocale(QLocale.C))
         self.conc_value.setRange(1e-30, 1e18)
@@ -1543,7 +1576,8 @@ class MainWindow(QMainWindow):
         l_input = QFormLayout(g_input)
 
         self.inv_wl_mode = QComboBox()
-        self.inv_wl_mode.addItems(["Одна λ", "Диапазон λ"])
+        self.inv_wl_mode.addItem("Одна λ", INV_WL_SINGLE)
+        self.inv_wl_mode.addItem("Диапазон λ", INV_WL_RANGE)
         self.inv_wl_mode.currentTextChanged.connect(self._on_inv_wl_mode_changed)
         l_input.addRow("Спектр:", self.inv_wl_mode)
 
@@ -1567,13 +1601,11 @@ class MainWindow(QMainWindow):
         l_input.addRow("L трассы:", self.inv_path_length)
 
         self.inv_input_mode = QComboBox()
-        self.inv_input_mode.addItems([
-            "T_eff = exp(-AVG alpha*L)",
-            "AVG T = mean(exp(-alpha*L))",
-            "tau = alpha*L",
-            "alpha (1/м)",
-            "MEC (м²/г)",
-        ])
+        self.inv_input_mode.addItem("T_eff = exp(-AVG alpha*L)", INV_EFFECTIVE_TRANSMITTANCE)
+        self.inv_input_mode.addItem("AVG T = mean(exp(-alpha*L))", INV_TRANSMITTANCE)
+        self.inv_input_mode.addItem("tau = alpha*L", INV_TAU)
+        self.inv_input_mode.addItem("alpha (1/м)", INV_ALPHA)
+        self.inv_input_mode.addItem("MEC (м²/г)", INV_MEC)
         self.inv_input_mode.currentTextChanged.connect(self._on_inv_mode_changed)
         l_input.addRow("Тип входа:", self.inv_input_mode)
 
@@ -1705,7 +1737,8 @@ class MainWindow(QMainWindow):
         layout.addWidget(g_dist)
         l_dist = QFormLayout(g_dist)
         self.opt_mode = QComboBox()
-        self.opt_mode.addItems(["Только окно D", "Полная (μ, σ, окно)"])
+        self.opt_mode.addItem("Только окно D", OPT_WINDOW_ONLY)
+        self.opt_mode.addItem("Полная (μ, σ, окно)", OPT_FULL)
         self.opt_mode.currentTextChanged.connect(self._on_optim_mode_changed)
         l_dist.addRow("Режим:", self.opt_mode)
 
@@ -1756,7 +1789,8 @@ class MainWindow(QMainWindow):
         layout.addWidget(g_crit)
         l_crit = QFormLayout(g_crit)
         self.opt_criterion = QComboBox()
-        self.opt_criterion.addItems(["Максимизировать mean MEC·L", "Максимизировать min MEC·L"])
+        self.opt_criterion.addItem("Максимизировать mean MEC·L", OPT_MEAN)
+        self.opt_criterion.addItem("Максимизировать min MEC·L", OPT_MIN)
         l_crit.addRow("Критерий:", self.opt_criterion)
 
         g_ctrl = QGroupBox("6. Управление")
@@ -1777,8 +1811,9 @@ class MainWindow(QMainWindow):
 
         layout.addStretch()
 
-    def _on_optim_mode_changed(self, text):
-        is_full = "Полная" in text
+    def _on_optim_mode_changed(self, _text=None):
+        opt_mode = self._combo_data(self.opt_mode, OPT_WINDOW_ONLY)
+        is_full = (opt_mode == OPT_FULL)
         self.opt_mu.setEnabled(not is_full)
         self.opt_sigma.setEnabled(not is_full)
         self.lbl_opt_mu.setEnabled(not is_full)
@@ -1823,8 +1858,9 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Ошибка", "D_scan_min >= D_scan_max.")
             return
 
-        is_full = "Полная" in self.opt_mode.currentText()
-        criterion = "mean" if "mean" in self.opt_criterion.currentText() else "min"
+        opt_mode = self._combo_data(self.opt_mode, OPT_WINDOW_ONLY)
+        is_full = (opt_mode == OPT_FULL)
+        criterion = self._combo_data(self.opt_criterion, OPT_MEAN)
 
         p = {
             "fractions": norm_fracs,
@@ -1836,7 +1872,7 @@ class MainWindow(QMainWindow):
             "N_D_points": int(self.opt_n_d_points.value()),
             "N_window_grid": int(self.opt_n_window.value()),
             "criterion": criterion,
-            "mode": "full" if is_full else "window_only",
+            "mode": OPT_FULL if is_full else OPT_WINDOW_ONLY,
         }
 
         if is_full:
@@ -1882,7 +1918,7 @@ class MainWindow(QMainWindow):
             self.btn_opt_save.setEnabled(True)
             marker_value = (
                 res.get("mec_l_mean", res["mec_mean"])
-                if res.get("criterion") == "mean"
+                if res.get("criterion") == OPT_MEAN
                 else res.get("mec_l_min", res["mec_min"])
             )
             self._optim_marker = (res["d_min"], res["d_max"],
@@ -1932,7 +1968,7 @@ class MainWindow(QMainWindow):
             window_mec = np.array(res_w["window_mec"])
             metric_label = res_w.get("metric_label", "MEC")
             metric_units = res_w.get("metric_units", "м²/г")
-            crit_label = "mean" if res_w["criterion"] == "mean" else "min"
+            crit_label = "mean" if res_w["criterion"] == OPT_MEAN else "min"
 
             ax2 = self.opt_figure.add_subplot(1, ncols, col)
             im2 = ax2.pcolormesh(dmax_grid, dmin_grid, window_mec, shading='auto', cmap='viridis')
@@ -2066,10 +2102,15 @@ class MainWindow(QMainWindow):
         s.setSingleStep(step)
         return s
 
-    def _on_dist_type_changed(self, text):
-        is_mono = (text == "Монодисперс")
-        is_lognormal = (text == "Лог-нормальное")
-        is_custom = (text == "Кастомное")
+    def _combo_data(self, combo, fallback):
+        data = combo.currentData()
+        return fallback if data is None else data
+
+    def _on_dist_type_changed(self, _text=None):
+        dist_mode = self._combo_data(self.dist_type_combo, DIST_LOGNORMAL)
+        is_mono = (dist_mode == DIST_MONODISPERSE)
+        is_lognormal = (dist_mode == DIST_LOGNORMAL)
+        is_custom = (dist_mode == DIST_CUSTOM)
         is_poly = is_lognormal or is_custom
 
         self.s_d_mono.setEnabled(is_mono)
@@ -2094,8 +2135,9 @@ class MainWindow(QMainWindow):
         self.lbl_custom_mu.setEnabled(is_custom)
         self.lbl_custom_sigma.setEnabled(is_custom)
 
-    def _on_conc_mode_changed(self, text):
-        if text == "Числовая":
+    def _on_conc_mode_changed(self, _text=None):
+        conc_mode = self._combo_data(self.conc_mode, CONC_MASS)
+        if conc_mode == CONC_NUMBER:
             self.conc_value.setDecimals(6)
             self.conc_value.setSuffix(" 1/м³")
             if self.conc_value.value() <= 0:
@@ -2106,8 +2148,9 @@ class MainWindow(QMainWindow):
             if self.conc_value.value() <= 0:
                 self.conc_value.setValue(1.2)
 
-    def _on_inv_wl_mode_changed(self, text):
-        is_range = "Диапазон" in text
+    def _on_inv_wl_mode_changed(self, _text=None):
+        wl_mode = self._combo_data(self.inv_wl_mode, INV_WL_SINGLE)
+        is_range = (wl_mode == INV_WL_RANGE)
         self.inv_lambda.setEnabled(not is_range)
         self.lbl_inv_lambda.setEnabled(not is_range)
         for w in [
@@ -2120,17 +2163,18 @@ class MainWindow(QMainWindow):
         ]:
             w.setEnabled(is_range)
 
-    def _on_inv_mode_changed(self, text):
-        needs_mass_conc = "MEC" not in text
+    def _on_inv_mode_changed(self, _text=None):
+        input_mode = self._combo_data(self.inv_input_mode, INV_EFFECTIVE_TRANSMITTANCE)
+        needs_mass_conc = input_mode != INV_MEC
         self.inv_mass_conc.setEnabled(needs_mass_conc)
         self.lbl_inv_mass_conc.setEnabled(needs_mass_conc)
-        if text.startswith("T") or text.startswith("AVG T"):
+        if input_mode in (INV_TRANSMITTANCE, INV_EFFECTIVE_TRANSMITTANCE):
             self.inv_target_value.setDecimals(6)
             self.inv_target_value.setSuffix("")
-        elif "tau" in text:
+        elif input_mode == INV_TAU:
             self.inv_target_value.setDecimals(6)
             self.inv_target_value.setSuffix("")
-        elif "alpha" in text:
+        elif input_mode == INV_ALPHA:
             self.inv_target_value.setDecimals(6)
             self.inv_target_value.setSuffix(" 1/м")
         else:
@@ -2156,9 +2200,9 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Ошибка", "Не выбран состав смеси.")
             return
 
-        dist_type_text = self.dist_type_combo.currentText()
-        is_monodisperse = (dist_type_text == "Монодисперс")
-        is_custom = (dist_type_text == "Кастомное")
+        dist_mode = self._combo_data(self.dist_type_combo, DIST_LOGNORMAL)
+        is_monodisperse = (dist_mode == DIST_MONODISPERSE)
+        is_custom = (dist_mode == DIST_CUSTOM)
 
         if is_monodisperse:
             d_mono = float(self.s_d_mono.value())
@@ -2201,7 +2245,7 @@ class MainWindow(QMainWindow):
 
         norm_fracs = {k: v / tot for k, v in fracs.items()}
 
-        conc_mode = self.conc_mode.currentText()
+        conc_mode = self._combo_data(self.conc_mode, CONC_MASS)
         conc_value = float(self.conc_value.value())
         if conc_value <= 0 or (not np.isfinite(conc_value)):
             QMessageBox.warning(self, "Ошибка", "Концентрация должна быть > 0.")
@@ -2224,7 +2268,7 @@ class MainWindow(QMainWindow):
         elif is_custom:
             p = {
                 "monodisperse": False,
-                "dist_type": "custom",
+                "dist_type": DIST_CUSTOM,
                 "d_range": (dmin, dmax),
                 "custom_A": float(self.s_custom_A.value()),
                 "custom_mu": float(self.s_custom_mu.value()),
@@ -2239,7 +2283,7 @@ class MainWindow(QMainWindow):
         else:
             p = {
                 "monodisperse": False,
-                "dist_type": "lognormal",
+                "dist_type": DIST_LOGNORMAL,
                 "d_range": (dmin, dmax),
                 "d_dist": (float(self.s_dgm.value()), float(self.s_sigma.value())),
                 "wl_range": (wlmin, wlmax, step),
@@ -2308,7 +2352,8 @@ class MainWindow(QMainWindow):
 
         norm_fracs = {k: v / tot for k, v in fracs.items()}
 
-        inv_wl_is_range = "Диапазон" in self.inv_wl_mode.currentText()
+        inv_wl_mode = self._combo_data(self.inv_wl_mode, INV_WL_SINGLE)
+        inv_wl_is_range = (inv_wl_mode == INV_WL_RANGE)
         if inv_wl_is_range:
             wl_min = float(self.inv_wl_min.value())
             wl_max = float(self.inv_wl_max.value())
@@ -2329,19 +2374,12 @@ class MainWindow(QMainWindow):
             wl_min = wl_max = wl_step = None
             inv_wavelengths = np.array([lam_um], dtype=float)
 
-        inv_mode_text = self.inv_input_mode.currentText()
-        if inv_mode_text.startswith("T_eff"):
-            input_mode = "effective_transmittance"
-        elif inv_mode_text.startswith("AVG T"):
-            input_mode = "transmittance"
-        elif "tau" in inv_mode_text:
-            input_mode = "tau"
-        elif "alpha" in inv_mode_text:
-            input_mode = "alpha"
-        else:
-            input_mode = "mec"
+        input_mode = self._combo_data(self.inv_input_mode, INV_EFFECTIVE_TRANSMITTANCE)
         target_value = float(self.inv_target_value.value())
-        if target_value <= 0 or (input_mode == "transmittance" and target_value > 1.0):
+        if target_value <= 0 or (
+            input_mode in (INV_TRANSMITTANCE, INV_EFFECTIVE_TRANSMITTANCE)
+            and target_value > 1.0
+        ):
             QMessageBox.warning(self, "Ошибка", "Целевое значение должно быть > 0, а для T не больше 1.")
             return
         path_length_m = float(self.inv_path_length.value())
@@ -2369,7 +2407,7 @@ class MainWindow(QMainWindow):
 
         p = {
             "fractions": norm_fracs,
-            "wl_mode": "range" if inv_wl_is_range else "single",
+            "wl_mode": INV_WL_RANGE if inv_wl_is_range else INV_WL_SINGLE,
             "input_mode": input_mode,
             "target_value": target_value,
             "path_length_m": path_length_m,
@@ -2382,7 +2420,7 @@ class MainWindow(QMainWindow):
         else:
             p["lambda_um"] = lam_um
 
-        if input_mode in ("alpha", "tau", "transmittance", "effective_transmittance"):
+        if input_mode in (INV_ALPHA, INV_TAU, INV_TRANSMITTANCE, INV_EFFECTIVE_TRANSMITTANCE):
             mass_conc_g = float(self.inv_mass_conc.value())
             if mass_conc_g <= 0:
                 QMessageBox.warning(self, "Ошибка", "Массовая концентрация должна быть > 0.")
@@ -2452,7 +2490,7 @@ class MainWindow(QMainWindow):
 
                 if is_mono:
                     f.write(f"Monodisperse: D={p['D_um']:.4f} um\n")
-                elif p.get("dist_type") == "custom":
+                elif p.get("dist_type") == DIST_CUSTOM:
                     f.write(f"Dist: Custom(A={p['custom_A']:.6f}, mu={p['custom_mu']:.6f}, sigma={p['custom_sigma']:.6f}), Range=[{p['d_range'][0]}, {p['d_range'][1]}] um, N_D={p['points_d']}\n")
                 else:
                     f.write(f"Dist: Log-Normal(Dg={p['d_dist'][0]}, Sig={p['d_dist'][1]}), Range=[{p['d_range'][0]}, {p['d_range'][1]}] um, N_D={p['points_d']}\n")
@@ -2551,9 +2589,9 @@ class MainWindow(QMainWindow):
                 f.write(f"L = {p.get('path_length_m', 1.0):.6f} м\n")
                 f.write(f"Input mode: {p['input_mode']}\n")
                 f.write(f"Target value: {p['target_value']:.6e}\n")
-                if p['input_mode'] in ('alpha', 'tau', 'transmittance', 'effective_transmittance'):
+                if p['input_mode'] in (INV_ALPHA, INV_TAU, INV_TRANSMITTANCE, INV_EFFECTIVE_TRANSMITTANCE):
                     f.write(f"Mass concentration: {p['mass_conc_g']:.6e} г/м³\n")
-                if p['input_mode'] in ('transmittance', 'effective_transmittance') and res.get('equivalent_mec') is not None:
+                if p['input_mode'] in (INV_TRANSMITTANCE, INV_EFFECTIVE_TRANSMITTANCE) and res.get('equivalent_mec') is not None:
                     f.write(f"Equivalent -ln(T)/(rho_mass*L): {res['equivalent_mec']:.6e} м²/г\n")
                 f.write(f"Target {metric_label}: {target_mec:.6e}{units_suffix}\n")
                 f.write(f"Search range: [{p['D_min_um']:.4f}, {p['D_max_um']:.4f}] мкм\n")
@@ -2575,7 +2613,7 @@ class MainWindow(QMainWindow):
                         f.write(f"  alpha (check) = {sol.get('alpha_check', float('nan')):.6e} 1/м\n")
                         f.write(f"  tau=alpha*L (check) = {sol.get('tau_check', float('nan')):.6e}\n")
                         f.write(f"  exp(-tau) (check) = {sol.get('transmittance_check', float('nan')):.6e}\n")
-                    if p['input_mode'] == 'transmittance':
+                    if p['input_mode'] == INV_TRANSMITTANCE:
                         f.write(f"  AVG MEC (reference) = {sol.get('avg_mec_check', float('nan')):.6e} м²/г\n")
                     f.write(f"  {metric_label} (check) = {sol['mec_check']:.6e}{units_suffix}\n")
                     f.write(f"  Relative error = {sol.get('rel_error', 0)*100:.4f}%\n")
