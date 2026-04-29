@@ -76,6 +76,8 @@ InverseInputMode: TypeAlias = Literal["mec", "alpha", "tau", "transmittance", "e
 OptimizationMode: TypeAlias = Literal["window_only", "full"]
 OptimizationCriterion: TypeAlias = Literal["mean", "min"]
 RIModel: TypeAlias = Callable[[float], complex]
+Fractions: TypeAlias = dict[str, float]
+DensityMap: TypeAlias = dict[str, float]
 
 CONC_MASS: ConcMode = "Массовая"
 CONC_NUMBER: ConcMode = "Числовая"
@@ -97,6 +99,9 @@ OPT_WINDOW_ONLY: OptimizationMode = "window_only"
 OPT_FULL: OptimizationMode = "full"
 OPT_MEAN: OptimizationCriterion = "mean"
 OPT_MIN: OptimizationCriterion = "min"
+
+DENSITY_FALLBACK = 2000.0
+TAU_UNDERFLOW_LIMIT = 745.0
 
 def make_wavelengths(min_w, max_w, step):
     if step <= 0 or max_w <= min_w:
@@ -307,6 +312,40 @@ def get_ri(material: str, lam_um: float) -> complex:
         return complex(1.5, 0.0)
     return model(lam_um)
 
+
+def material_density_map() -> DensityMap:
+    return {code: rho for (code, _name, rho) in MATERIALS_DB}
+
+
+def mixture_density(fractions: Fractions, rho_by_code: DensityMap | None = None) -> float:
+    densities = material_density_map() if rho_by_code is None else rho_by_code
+    return sum(
+        float(frac) * float(densities.get(mat_code, DENSITY_FALLBACK))
+        for mat_code, frac in fractions.items()
+    )
+
+
+def resolve_concentration(conc_mode: ConcMode, conc_value: float, avg_mass_kg: float) -> tuple[float, float]:
+    if not np.isfinite(conc_value) or conc_value <= 0:
+        raise ValueError("Концентрация должна быть > 0.")
+    if not np.isfinite(avg_mass_kg) or avg_mass_kg <= 0:
+        raise ValueError("Средняя масса частицы некорректна (<=0 или NaN).")
+
+    if conc_mode == CONC_NUMBER:
+        num_conc = conc_value
+        mass_conc_g = (num_conc * avg_mass_kg) * 1000.0
+    else:
+        mass_conc_g = conc_value
+        num_conc = (mass_conc_g * 1e-3) / avg_mass_kg
+
+    if not np.isfinite(num_conc) or num_conc <= 0:
+        raise ValueError("Числовая концентрация некорректна (<=0 или NaN).")
+    return num_conc, mass_conc_g
+
+
+def transmittance_from_tau(tau: float) -> float:
+    return 0.0 if tau > TAU_UNDERFLOW_LIMIT else float(np.exp(-tau))
+
 def lognormal_pdf(d, d_g, sigma_g):
     d = np.maximum(d, 1e-12)
     return (1.0 / (np.sqrt(2 * np.pi) * d * np.log(sigma_g))) * np.exp(-(np.log(d) - np.log(d_g)) ** 2 / (2 * np.log(sigma_g) ** 2))
@@ -403,7 +442,7 @@ class CalculationWorker(QThread):
     def run(self):
         p = self.params
         try:
-            rho_by_code = {c: rho for (c, _, rho) in MATERIALS_DB}
+            rho_by_code = material_density_map()
             fractions = p["fractions"]
             is_monodisperse = p.get("monodisperse", False)
 
@@ -422,8 +461,6 @@ class CalculationWorker(QThread):
 
             conc_mode = p.get("conc_mode", CONC_MASS)
             conc_value = float(p.get("conc_value", 0.01))
-            if not np.isfinite(conc_value) or conc_value <= 0:
-                raise ValueError("Концентрация должна быть > 0.")
             path_length_m = float(p.get("path_length_m", 1.0))
             if not np.isfinite(path_length_m) or path_length_m <= 0:
                 raise ValueError("Длина трассы L должна быть > 0.")
@@ -438,25 +475,14 @@ class CalculationWorker(QThread):
 
                 avg_mass_by_mat = {}
                 for mat_code in fractions.keys():
-                    rho = float(rho_by_code.get(mat_code, 2000.0))
+                    rho = float(rho_by_code.get(mat_code, DENSITY_FALLBACK))
                     avg_mass_by_mat[mat_code] = rho * V_m3
 
                 avg_mass_mixture = 0.0
                 for mat_code, frac in fractions.items():
                     avg_mass_mixture += float(frac) * float(avg_mass_by_mat[mat_code])
 
-                if not np.isfinite(avg_mass_mixture) or avg_mass_mixture <= 0:
-                    raise ValueError("Средняя масса частицы некорректна (<=0 или NaN).")
-
-                if conc_mode == CONC_NUMBER:
-                    num_conc = conc_value
-                    mass_conc_g = (num_conc * avg_mass_mixture) * 1000.0
-                else:
-                    mass_conc_g = conc_value
-                    num_conc = (mass_conc_g * 1e-3) / avg_mass_mixture
-
-                if not np.isfinite(num_conc) or num_conc <= 0:
-                    raise ValueError("Числовая концентрация некорректна (<=0 или NaN).")
+                num_conc, mass_conc_g = resolve_concentration(conc_mode, conc_value, avg_mass_mixture)
 
                 D_nm = D_um * 1000.0
                 geom_nm2 = np.pi * (D_nm ** 2) / 4.0
@@ -508,7 +534,7 @@ class CalculationWorker(QThread):
                     c_ext_m2 = c_ext_total_mix * 1e-12
                     alpha = num_conc * c_ext_m2
                     tau = alpha * path_length_m
-                    transmittance = 0.0 if tau > 745 else float(np.exp(-tau))
+                    transmittance = transmittance_from_tau(tau)
                     mec = alpha / mass_conc_g
 
                     row = {
@@ -542,7 +568,7 @@ class CalculationWorker(QThread):
                     avg_tau = sum_tau / n_rows
                     avg_transmittance = sum_transmittance / n_rows
                     avg_mec = sum_mec / n_rows
-                    eff_transmittance = 0.0 if avg_tau > 745 else float(np.exp(-avg_tau))
+                    eff_transmittance = transmittance_from_tau(avg_tau)
 
                     self.log_signal.emit("-" * len(header))
                     self.log_signal.emit(f"{'AVG':>10} | {avg_cext:15.6e} | {avg_alpha:15.6e} | {avg_tau:15.6e} | {avg_transmittance:12.6e} | {avg_mec:15.6e}")
@@ -630,7 +656,7 @@ class CalculationWorker(QThread):
 
                 avg_mass_by_mat = {}
                 for mat_code in fractions.keys():
-                    rho = float(rho_by_code.get(mat_code, 2000.0))
+                    rho = float(rho_by_code.get(mat_code, DENSITY_FALLBACK))
                     mass_integrand = rho * volumes_m3 * pdf_normalized
                     avg_mass_by_mat[mat_code] = float(scipy.integrate.trapz(mass_integrand, diameters_um))
 
@@ -638,18 +664,7 @@ class CalculationWorker(QThread):
                 for mat_code, frac in fractions.items():
                     avg_mass_mixture += float(frac) * avg_mass_by_mat[mat_code]
 
-                if not np.isfinite(avg_mass_mixture) or avg_mass_mixture <= 0:
-                    raise ValueError("Средняя масса частицы некорректна (<=0 или NaN).")
-
-                if conc_mode == CONC_NUMBER:
-                    num_conc = conc_value
-                    mass_conc_g = (num_conc * avg_mass_mixture) * 1000.0
-                else:
-                    mass_conc_g = conc_value
-                    num_conc = (mass_conc_g * 1e-3) / avg_mass_mixture
-
-                if not np.isfinite(num_conc) or num_conc <= 0:
-                    raise ValueError("Числовая концентрация некорректна (<=0 или NaN).")
+                num_conc, mass_conc_g = resolve_concentration(conc_mode, conc_value, avg_mass_mixture)
 
                 diameters_nm = diameters_um * 1000.0
 
@@ -716,7 +731,7 @@ class CalculationWorker(QThread):
                     c_ext_m2 = c_ext_total_mix * 1e-12
                     alpha = num_conc * c_ext_m2
                     tau = alpha * path_length_m
-                    transmittance = 0.0 if tau > 745 else float(np.exp(-tau))
+                    transmittance = transmittance_from_tau(tau)
                     mec = alpha / mass_conc_g
 
                     row = {
@@ -750,7 +765,7 @@ class CalculationWorker(QThread):
                     avg_tau = sum_tau / n_rows
                     avg_transmittance = sum_transmittance / n_rows
                     avg_mec = sum_mec / n_rows
-                    eff_transmittance = 0.0 if avg_tau > 745 else float(np.exp(-avg_tau))
+                    eff_transmittance = transmittance_from_tau(avg_tau)
 
                     self.log_signal.emit("-" * len(header))
                     self.log_signal.emit(f"{'AVG':>10} | {avg_cext:15.6e} | {avg_alpha:15.6e} | {avg_tau:15.6e} | {avg_transmittance:12.6e} | {avg_mec:15.6e}")
@@ -789,12 +804,9 @@ class InverseWorker(QThread):
     def run(self):
         p = self.params
         try:
-            rho_by_code = {c: rho for (c, _, rho) in MATERIALS_DB}
+            rho_by_code = material_density_map()
             fractions = p["fractions"]
-
-            rho_avg = 0.0
-            for mat_code, frac in fractions.items():
-                rho_avg += float(frac) * float(rho_by_code.get(mat_code, 2000.0))
+            rho_avg = mixture_density(fractions, rho_by_code)
 
             wl_mode = p.get("wl_mode", "single")
             if wl_mode == INV_WL_RANGE:
@@ -892,11 +904,11 @@ class InverseWorker(QThread):
                     return np.nan
                 if input_mode == INV_TRANSMITTANCE:
                     tau_vals = vals * mass_conc_g * path_length_m
-                    tau_vals = np.minimum(tau_vals, 745.0)
+                    tau_vals = np.minimum(tau_vals, TAU_UNDERFLOW_LIMIT)
                     return float(np.mean(np.exp(-tau_vals)))
                 if input_mode == INV_EFFECTIVE_TRANSMITTANCE:
                     tau_avg = float(np.mean(vals) * mass_conc_g * path_length_m)
-                    return 0.0 if tau_avg > 745 else float(np.exp(-tau_avg))
+                    return transmittance_from_tau(tau_avg)
                 return float(np.mean(vals))
 
             self.log_signal.emit(f"Сканирование {metric_label}(D)...")
@@ -1040,7 +1052,7 @@ class InverseWorker(QThread):
                         N_solution = (mass_conc_g * 1e-3) / m_particle
                         alpha_check = avg_mec_check * mass_conc_g
                         tau_check = alpha_check * path_length_m
-                        transmittance_check = 0.0 if tau_check > 745 else float(np.exp(-tau_check))
+                        transmittance_check = transmittance_from_tau(tau_check)
                     else:
                         N_solution = None
                         alpha_check = None
@@ -1140,11 +1152,9 @@ class OptimizationWorker(QThread):
     def run(self):
         p = self.params
         try:
-            rho_by_code = {c: rho for (c, _, rho) in MATERIALS_DB}
+            rho_by_code = material_density_map()
             fractions = p["fractions"]
-            rho_avg = 0.0
-            for mat_code, frac in fractions.items():
-                rho_avg += float(frac) * float(rho_by_code.get(mat_code, 2000.0))
+            rho_avg = mixture_density(fractions, rho_by_code)
 
             wl_min, wl_max, wl_step = p["wl_range"]
             wavelengths = make_wavelengths(wl_min, wl_max, wl_step)
@@ -2562,7 +2572,7 @@ class MainWindow(QMainWindow):
 
                 for r in data:
                     tau = float(r.get("tau", r["alpha_1m"] * path_length_m))
-                    transmittance = float(r.get("transmittance", 0.0 if tau > 745 else np.exp(-tau)))
+                    transmittance = float(r.get("transmittance", transmittance_from_tau(tau)))
                     line = f"{r['wl']:10.4f} | {r['cext_um2']:15.6e} | {r['alpha_1m']:15.6e} | {tau:15.6e} | {transmittance:12.6e} | {r['mec_m2g']:15.6e}"
                     parts = r["parts"]
                     for m in mats:
@@ -2585,7 +2595,7 @@ class MainWindow(QMainWindow):
                     avg_transmittance = sum_transmittance / n_rows
                     avg_mec = sum_mec / n_rows
                     avg_parts = {m: (sum_parts[m] / n_rows) for m in mats}
-                    eff_transmittance = 0.0 if avg_tau > 745 else float(np.exp(-avg_tau))
+                    eff_transmittance = transmittance_from_tau(avg_tau)
 
                     f.write("-" * len(hdr) + "\n")
                     avg_line = f"{'AVG':>10} | {avg_cext:15.6e} | {avg_alpha:15.6e} | {avg_tau:15.6e} | {avg_transmittance:12.6e} | {avg_mec:15.6e}"
