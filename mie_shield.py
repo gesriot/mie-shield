@@ -326,6 +326,24 @@ def mixture_density(fractions: Fractions, rho_by_code: DensityMap | None = None)
     )
 
 
+def monodisperse_particle_mass_kg(D_um: float, fractions: Fractions, rho_by_code: DensityMap | None = None) -> float:
+    D_m = D_um * 1e-6
+    volume_m3 = (np.pi / 6.0) * (D_m ** 3)
+    return mixture_density(fractions, rho_by_code) * volume_m3
+
+
+def distributed_particle_mass_kg(
+    diameters_um: np.ndarray,
+    pdf_normalized: np.ndarray,
+    fractions: Fractions,
+    rho_by_code: DensityMap | None = None,
+) -> float:
+    diameters_m = diameters_um * 1e-6
+    volumes_m3 = (np.pi / 6.0) * (diameters_m**3)
+    avg_volume_m3 = float(scipy.integrate.trapz(volumes_m3 * pdf_normalized, diameters_um))
+    return mixture_density(fractions, rho_by_code) * avg_volume_m3
+
+
 def resolve_concentration(conc_mode: ConcMode, conc_value: float, avg_mass_kg: float) -> tuple[float, float]:
     if not np.isfinite(conc_value) or conc_value <= 0:
         raise ValueError("Концентрация должна быть > 0.")
@@ -593,20 +611,10 @@ class CalculationWorker(QThread):
 
             if is_monodisperse:
                 D_um = float(p["D_um"])
-                D_m = D_um * 1e-6
-                V_m3 = (np.pi / 6.0) * (D_m ** 3)
 
                 self.log_signal.emit(f"Монодисперсные частицы: D={D_um:.4f} мкм")
 
-                avg_mass_by_mat = {}
-                for mat_code in fractions.keys():
-                    rho = float(rho_by_code.get(mat_code, DENSITY_FALLBACK))
-                    avg_mass_by_mat[mat_code] = rho * V_m3
-
-                avg_mass_mixture = 0.0
-                for mat_code, frac in fractions.items():
-                    avg_mass_mixture += float(frac) * float(avg_mass_by_mat[mat_code])
-
+                avg_mass_mixture = monodisperse_particle_mass_kg(D_um, fractions, rho_by_code)
                 num_conc, mass_conc_g = resolve_concentration(conc_mode, conc_value, avg_mass_mixture)
 
                 D_nm = D_um * 1000.0
@@ -746,19 +754,7 @@ class CalculationWorker(QThread):
                     pdf_normalized = pdf_values / mass_numerical
                     self.log_signal.emit("ℹ️ Модель: Truncated Log-Normal (перенормировка на 1.0 внутри диапазона).")
 
-                diameters_m = diameters_um * 1e-6
-                volumes_m3 = (np.pi / 6.0) * (diameters_m**3)
-
-                avg_mass_by_mat = {}
-                for mat_code in fractions.keys():
-                    rho = float(rho_by_code.get(mat_code, DENSITY_FALLBACK))
-                    mass_integrand = rho * volumes_m3 * pdf_normalized
-                    avg_mass_by_mat[mat_code] = float(scipy.integrate.trapz(mass_integrand, diameters_um))
-
-                avg_mass_mixture = 0.0
-                for mat_code, frac in fractions.items():
-                    avg_mass_mixture += float(frac) * avg_mass_by_mat[mat_code]
-
+                avg_mass_mixture = distributed_particle_mass_kg(diameters_um, pdf_normalized, fractions, rho_by_code)
                 num_conc, mass_conc_g = resolve_concentration(conc_mode, conc_value, avg_mass_mixture)
 
                 diameters_nm = diameters_um * 1000.0
