@@ -1,5 +1,5 @@
 import sys
-from typing import Callable, Literal, TypeAlias
+from typing import Callable, Iterable, Literal, TypeAlias
 
 import numpy as np
 import scipy.integrate
@@ -78,6 +78,7 @@ OptimizationCriterion: TypeAlias = Literal["mean", "min"]
 RIModel: TypeAlias = Callable[[float], complex]
 Fractions: TypeAlias = dict[str, float]
 DensityMap: TypeAlias = dict[str, float]
+ForwardRow: TypeAlias = dict[str, object]
 
 CONC_MASS: ConcMode = "Массовая"
 CONC_NUMBER: ConcMode = "Числовая"
@@ -346,6 +347,68 @@ def resolve_concentration(conc_mode: ConcMode, conc_value: float, avg_mass_kg: f
 def transmittance_from_tau(tau: float) -> float:
     return 0.0 if tau > TAU_UNDERFLOW_LIMIT else float(np.exp(-tau))
 
+
+def make_forward_row(
+    lam_um: float,
+    c_ext_total_mix: float,
+    c_ext_parts: dict[str, float],
+    num_conc: float,
+    mass_conc_g: float,
+    path_length_m: float,
+) -> ForwardRow:
+    c_ext_m2 = c_ext_total_mix * 1e-12
+    alpha = num_conc * c_ext_m2
+    tau = alpha * path_length_m
+    transmittance = transmittance_from_tau(tau)
+    mec = alpha / mass_conc_g
+
+    return {
+        "wl": float(lam_um),
+        "cext_um2": float(c_ext_total_mix),
+        "alpha_1m": float(alpha),
+        "tau": float(tau),
+        "transmittance": float(transmittance),
+        "mec_m2g": float(mec),
+        "parts": {k: float(v) for k, v in c_ext_parts.items()},
+    }
+
+
+def summarize_forward_rows(rows: list[ForwardRow], materials: Iterable[str]) -> dict[str, object] | None:
+    if not rows:
+        return None
+
+    mats = list(materials)
+    n_rows = len(rows)
+    sum_parts = {k: 0.0 for k in mats}
+
+    sum_cext = 0.0
+    sum_alpha = 0.0
+    sum_tau = 0.0
+    sum_transmittance = 0.0
+    sum_mec = 0.0
+
+    for row in rows:
+        sum_cext += float(row["cext_um2"])
+        sum_alpha += float(row["alpha_1m"])
+        sum_tau += float(row["tau"])
+        sum_transmittance += float(row["transmittance"])
+        sum_mec += float(row["mec_m2g"])
+        parts = row["parts"]
+        for mat_code in mats:
+            sum_parts[mat_code] += float(parts[mat_code])
+
+    avg_tau = sum_tau / n_rows
+    return {
+        "cext_um2": sum_cext / n_rows,
+        "alpha_1m": sum_alpha / n_rows,
+        "tau": avg_tau,
+        "transmittance": sum_transmittance / n_rows,
+        "mec_m2g": sum_mec / n_rows,
+        "parts": {mat_code: (sum_parts[mat_code] / n_rows) for mat_code in mats},
+        "eff_transmittance": transmittance_from_tau(avg_tau),
+    }
+
+
 def lognormal_pdf(d, d_g, sigma_g):
     d = np.maximum(d, 1e-12)
     return (1.0 / (np.sqrt(2 * np.pi) * d * np.log(sigma_g))) * np.exp(-(np.log(d) - np.log(d_g)) ** 2 / (2 * np.log(sigma_g) ** 2))
@@ -492,13 +555,6 @@ class CalculationWorker(QThread):
                 self.log_signal.emit("-" * len(header))
 
                 results = []
-                sum_cext = 0.0
-                sum_alpha = 0.0
-                sum_tau = 0.0
-                sum_transmittance = 0.0
-                sum_mec = 0.0
-                sum_parts = {k: 0.0 for k in fractions.keys()}
-                n_rows = 0
 
                 for i, lam_um in enumerate(wavelengths):
                     if self.is_aborted:
@@ -531,48 +587,25 @@ class CalculationWorker(QThread):
                         self.finished_signal.emit(False, msg)
                         return
 
-                    c_ext_m2 = c_ext_total_mix * 1e-12
-                    alpha = num_conc * c_ext_m2
-                    tau = alpha * path_length_m
-                    transmittance = transmittance_from_tau(tau)
-                    mec = alpha / mass_conc_g
-
-                    row = {
-                        "wl": float(lam_um),
-                        "cext_um2": float(c_ext_total_mix),
-                        "alpha_1m": float(alpha),
-                        "tau": float(tau),
-                        "transmittance": float(transmittance),
-                        "mec_m2g": float(mec),
-                        "parts": c_ext_parts,
-                    }
+                    row = make_forward_row(lam_um, c_ext_total_mix, c_ext_parts, num_conc, mass_conc_g, path_length_m)
                     results.append(row)
 
-                    sum_cext += float(c_ext_total_mix)
-                    sum_alpha += float(alpha)
-                    sum_tau += float(tau)
-                    sum_transmittance += float(transmittance)
-                    sum_mec += float(mec)
-                    for k in sum_parts.keys():
-                        sum_parts[k] += float(c_ext_parts[k])
-                    n_rows += 1
-
                     if i % log_every == 0 or i == wavelengths.size - 1:
-                        self.log_signal.emit(f"{lam_um:10.4f} | {c_ext_total_mix:15.6e} | {alpha:15.6e} | {tau:15.6e} | {transmittance:12.6e} | {mec:15.6e}")
+                        self.log_signal.emit(
+                            f"{row['wl']:10.4f} | {row['cext_um2']:15.6e} | {row['alpha_1m']:15.6e} | "
+                            f"{row['tau']:15.6e} | {row['transmittance']:12.6e} | {row['mec_m2g']:15.6e}"
+                        )
 
                     self.progress_signal.emit(int((i + 1) / wavelengths.size * 100))
 
-                if n_rows > 0:
-                    avg_cext = sum_cext / n_rows
-                    avg_alpha = sum_alpha / n_rows
-                    avg_tau = sum_tau / n_rows
-                    avg_transmittance = sum_transmittance / n_rows
-                    avg_mec = sum_mec / n_rows
-                    eff_transmittance = transmittance_from_tau(avg_tau)
-
+                summary = summarize_forward_rows(results, fractions.keys())
+                if summary:
                     self.log_signal.emit("-" * len(header))
-                    self.log_signal.emit(f"{'AVG':>10} | {avg_cext:15.6e} | {avg_alpha:15.6e} | {avg_tau:15.6e} | {avg_transmittance:12.6e} | {avg_mec:15.6e}")
-                    self.log_signal.emit(f"T_eff=exp(-AVG tau) = {eff_transmittance:.6e}")
+                    self.log_signal.emit(
+                        f"{'AVG':>10} | {summary['cext_um2']:15.6e} | {summary['alpha_1m']:15.6e} | "
+                        f"{summary['tau']:15.6e} | {summary['transmittance']:12.6e} | {summary['mec_m2g']:15.6e}"
+                    )
+                    self.log_signal.emit(f"T_eff=exp(-AVG tau) = {summary['eff_transmittance']:.6e}")
 
                 self.result_signal.emit(
                     {
@@ -674,14 +707,6 @@ class CalculationWorker(QThread):
 
                 results = []
 
-                sum_cext = 0.0
-                sum_alpha = 0.0
-                sum_tau = 0.0
-                sum_transmittance = 0.0
-                sum_mec = 0.0
-                sum_parts = {k: 0.0 for k in fractions.keys()}
-                n_rows = 0
-
                 for i, lam_um in enumerate(wavelengths):
                     if self.is_aborted:
                         self.finished_signal.emit(False, "Остановлено пользователем.")
@@ -728,48 +753,25 @@ class CalculationWorker(QThread):
                         self.finished_signal.emit(False, msg)
                         return
 
-                    c_ext_m2 = c_ext_total_mix * 1e-12
-                    alpha = num_conc * c_ext_m2
-                    tau = alpha * path_length_m
-                    transmittance = transmittance_from_tau(tau)
-                    mec = alpha / mass_conc_g
-
-                    row = {
-                        "wl": float(lam_um),
-                        "cext_um2": float(c_ext_total_mix),
-                        "alpha_1m": float(alpha),
-                        "tau": float(tau),
-                        "transmittance": float(transmittance),
-                        "mec_m2g": float(mec),
-                        "parts": c_ext_parts,
-                    }
+                    row = make_forward_row(lam_um, c_ext_total_mix, c_ext_parts, num_conc, mass_conc_g, path_length_m)
                     results.append(row)
 
-                    sum_cext += float(c_ext_total_mix)
-                    sum_alpha += float(alpha)
-                    sum_tau += float(tau)
-                    sum_transmittance += float(transmittance)
-                    sum_mec += float(mec)
-                    for k in sum_parts.keys():
-                        sum_parts[k] += float(c_ext_parts[k])
-                    n_rows += 1
-
                     if i % log_every == 0 or i == wavelengths.size - 1:
-                        self.log_signal.emit(f"{lam_um:10.4f} | {c_ext_total_mix:15.6e} | {alpha:15.6e} | {tau:15.6e} | {transmittance:12.6e} | {mec:15.6e}")
+                        self.log_signal.emit(
+                            f"{row['wl']:10.4f} | {row['cext_um2']:15.6e} | {row['alpha_1m']:15.6e} | "
+                            f"{row['tau']:15.6e} | {row['transmittance']:12.6e} | {row['mec_m2g']:15.6e}"
+                        )
 
                     self.progress_signal.emit(int((i + 1) / wavelengths.size * 100))
 
-                if n_rows > 0:
-                    avg_cext = sum_cext / n_rows
-                    avg_alpha = sum_alpha / n_rows
-                    avg_tau = sum_tau / n_rows
-                    avg_transmittance = sum_transmittance / n_rows
-                    avg_mec = sum_mec / n_rows
-                    eff_transmittance = transmittance_from_tau(avg_tau)
-
+                summary = summarize_forward_rows(results, fractions.keys())
+                if summary:
                     self.log_signal.emit("-" * len(header))
-                    self.log_signal.emit(f"{'AVG':>10} | {avg_cext:15.6e} | {avg_alpha:15.6e} | {avg_tau:15.6e} | {avg_transmittance:12.6e} | {avg_mec:15.6e}")
-                    self.log_signal.emit(f"T_eff=exp(-AVG tau) = {eff_transmittance:.6e}")
+                    self.log_signal.emit(
+                        f"{'AVG':>10} | {summary['cext_um2']:15.6e} | {summary['alpha_1m']:15.6e} | "
+                        f"{summary['tau']:15.6e} | {summary['transmittance']:12.6e} | {summary['mec_m2g']:15.6e}"
+                    )
+                    self.log_signal.emit(f"T_eff=exp(-AVG tau) = {summary['eff_transmittance']:.6e}")
 
                 self.result_signal.emit(
                     {
