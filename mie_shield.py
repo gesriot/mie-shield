@@ -409,6 +409,68 @@ def summarize_forward_rows(rows: list[ForwardRow], materials: Iterable[str]) -> 
     }
 
 
+def inverse_requires_mass_conc(input_mode: InverseInputMode) -> bool:
+    return input_mode in (INV_ALPHA, INV_TAU, INV_TRANSMITTANCE, INV_EFFECTIVE_TRANSMITTANCE)
+
+
+def inverse_uses_transmittance(input_mode: InverseInputMode) -> bool:
+    return input_mode in (INV_TRANSMITTANCE, INV_EFFECTIVE_TRANSMITTANCE)
+
+
+def inverse_metric_label(input_mode: InverseInputMode, use_avg_spectrum: bool) -> str:
+    if input_mode == INV_TRANSMITTANCE and use_avg_spectrum:
+        return "AVG T"
+    if input_mode == INV_EFFECTIVE_TRANSMITTANCE and use_avg_spectrum:
+        return "T_eff"
+    if inverse_uses_transmittance(input_mode):
+        return "T"
+    return "AVG MEC" if use_avg_spectrum else "MEC"
+
+
+def inverse_metric_units(input_mode: InverseInputMode) -> str:
+    return "" if inverse_uses_transmittance(input_mode) else "м²/г"
+
+
+def resolve_inverse_target(
+    input_mode: InverseInputMode,
+    target_value: float,
+    path_length_m: float,
+    mass_conc_g: float | None,
+) -> tuple[float, float | None]:
+    if inverse_requires_mass_conc(input_mode):
+        if mass_conc_g is None or mass_conc_g <= 0:
+            raise ValueError("Массовая концентрация должна быть > 0.")
+        if inverse_uses_transmittance(input_mode):
+            if not (0.0 < target_value <= 1.0):
+                raise ValueError("Пропускание T должно быть в диапазоне (0, 1].")
+            equivalent_mec = -np.log(target_value) / (mass_conc_g * path_length_m)
+            return target_value, equivalent_mec
+        if input_mode == INV_TAU:
+            return target_value / (mass_conc_g * path_length_m), None
+        return target_value / mass_conc_g, None
+
+    return target_value, None
+
+
+def inverse_metric_from_mec_values(
+    mec_values: np.ndarray,
+    input_mode: InverseInputMode,
+    mass_conc_g: float | None,
+    path_length_m: float,
+) -> float:
+    if input_mode == INV_TRANSMITTANCE:
+        if mass_conc_g is None:
+            raise ValueError("Массовая концентрация должна быть > 0.")
+        tau_vals = np.minimum(mec_values * mass_conc_g * path_length_m, TAU_UNDERFLOW_LIMIT)
+        return float(np.mean(np.exp(-tau_vals)))
+    if input_mode == INV_EFFECTIVE_TRANSMITTANCE:
+        if mass_conc_g is None:
+            raise ValueError("Массовая концентрация должна быть > 0.")
+        tau_avg = float(np.mean(mec_values) * mass_conc_g * path_length_m)
+        return transmittance_from_tau(tau_avg)
+    return float(np.mean(mec_values))
+
+
 def lognormal_pdf(d, d_g, sigma_g):
     d = np.maximum(d, 1e-12)
     return (1.0 / (np.sqrt(2 * np.pi) * d * np.log(sigma_g))) * np.exp(-(np.log(d) - np.log(d_g)) ** 2 / (2 * np.log(sigma_g) ** 2))
@@ -810,7 +872,7 @@ class InverseWorker(QThread):
             fractions = p["fractions"]
             rho_avg = mixture_density(fractions, rho_by_code)
 
-            wl_mode = p.get("wl_mode", "single")
+            wl_mode = p.get("wl_mode", INV_WL_SINGLE)
             if wl_mode == INV_WL_RANGE:
                 wl_min, wl_max, wl_step = p["wl_range"]
                 wavelengths = make_wavelengths(wl_min, wl_max, wl_step)
@@ -828,31 +890,10 @@ class InverseWorker(QThread):
                 raise ValueError("Длина трассы L должна быть > 0.")
 
             use_avg_spectrum = wavelengths.size > 1
-            metric_label = (
-                "AVG T" if input_mode == INV_TRANSMITTANCE and use_avg_spectrum
-                else "T_eff" if input_mode == INV_EFFECTIVE_TRANSMITTANCE and use_avg_spectrum
-                else "T" if input_mode in (INV_TRANSMITTANCE, INV_EFFECTIVE_TRANSMITTANCE)
-                else ("AVG MEC" if use_avg_spectrum else "MEC")
-            )
-            metric_units = "" if input_mode in (INV_TRANSMITTANCE, INV_EFFECTIVE_TRANSMITTANCE) else "м²/г"
-            equivalent_mec = None
-
-            if input_mode in (INV_ALPHA, INV_TAU, INV_TRANSMITTANCE, INV_EFFECTIVE_TRANSMITTANCE):
-                mass_conc_g = float(p["mass_conc_g"])
-                if mass_conc_g <= 0:
-                    raise ValueError("Массовая концентрация должна быть > 0.")
-                if input_mode in (INV_TRANSMITTANCE, INV_EFFECTIVE_TRANSMITTANCE):
-                    if not (0.0 < target_value <= 1.0):
-                        raise ValueError("Пропускание T должно быть в диапазоне (0, 1].")
-                    target_mec = target_value
-                    equivalent_mec = -np.log(target_value) / (mass_conc_g * path_length_m)
-                elif input_mode == INV_TAU:
-                    target_mec = target_value / (mass_conc_g * path_length_m)
-                else:
-                    target_mec = target_value / mass_conc_g
-            else:
-                target_mec = target_value
-                mass_conc_g = None
+            metric_label = inverse_metric_label(input_mode, use_avg_spectrum)
+            metric_units = inverse_metric_units(input_mode)
+            mass_conc_g = float(p["mass_conc_g"]) if inverse_requires_mass_conc(input_mode) else None
+            target_mec, equivalent_mec = resolve_inverse_target(input_mode, target_value, path_length_m, mass_conc_g)
 
             D_min_um = float(p["D_min_um"])
             D_max_um = float(p["D_max_um"])
@@ -904,14 +945,7 @@ class InverseWorker(QThread):
                 vals = compute_mec_spectrum(D_um)
                 if vals is None:
                     return np.nan
-                if input_mode == INV_TRANSMITTANCE:
-                    tau_vals = vals * mass_conc_g * path_length_m
-                    tau_vals = np.minimum(tau_vals, TAU_UNDERFLOW_LIMIT)
-                    return float(np.mean(np.exp(-tau_vals)))
-                if input_mode == INV_EFFECTIVE_TRANSMITTANCE:
-                    tau_avg = float(np.mean(vals) * mass_conc_g * path_length_m)
-                    return transmittance_from_tau(tau_avg)
-                return float(np.mean(vals))
+                return inverse_metric_from_mec_values(vals, input_mode, mass_conc_g, path_length_m)
 
             self.log_signal.emit(f"Сканирование {metric_label}(D)...")
 
@@ -1050,7 +1084,7 @@ class InverseWorker(QThread):
                     mec_spectrum_check = compute_mec_spectrum(D_solution)
                     avg_mec_check = float(np.mean(mec_spectrum_check)) if mec_spectrum_check is not None else np.nan
 
-                    if input_mode in (INV_ALPHA, INV_TAU, INV_TRANSMITTANCE, INV_EFFECTIVE_TRANSMITTANCE):
+                    if inverse_requires_mass_conc(input_mode):
                         N_solution = (mass_conc_g * 1e-3) / m_particle
                         alpha_check = avg_mec_check * mass_conc_g
                         tau_check = alpha_check * path_length_m
@@ -2215,10 +2249,10 @@ class MainWindow(QMainWindow):
 
     def _on_inv_mode_changed(self, _text=None):
         input_mode = self._combo_data(self.inv_input_mode, INV_EFFECTIVE_TRANSMITTANCE)
-        needs_mass_conc = input_mode != INV_MEC
+        needs_mass_conc = inverse_requires_mass_conc(input_mode)
         self.inv_mass_conc.setEnabled(needs_mass_conc)
         self.lbl_inv_mass_conc.setEnabled(needs_mass_conc)
-        if input_mode in (INV_TRANSMITTANCE, INV_EFFECTIVE_TRANSMITTANCE):
+        if inverse_uses_transmittance(input_mode):
             self.inv_target_value.setDecimals(6)
             self.inv_target_value.setSuffix("")
         elif input_mode == INV_TAU:
@@ -2427,7 +2461,7 @@ class MainWindow(QMainWindow):
         input_mode = self._combo_data(self.inv_input_mode, INV_EFFECTIVE_TRANSMITTANCE)
         target_value = float(self.inv_target_value.value())
         if target_value <= 0 or (
-            input_mode in (INV_TRANSMITTANCE, INV_EFFECTIVE_TRANSMITTANCE)
+            inverse_uses_transmittance(input_mode)
             and target_value > 1.0
         ):
             QMessageBox.warning(self, "Ошибка", "Целевое значение должно быть > 0, а для T не больше 1.")
@@ -2470,7 +2504,7 @@ class MainWindow(QMainWindow):
         else:
             p["lambda_um"] = lam_um
 
-        if input_mode in (INV_ALPHA, INV_TAU, INV_TRANSMITTANCE, INV_EFFECTIVE_TRANSMITTANCE):
+        if inverse_requires_mass_conc(input_mode):
             mass_conc_g = float(self.inv_mass_conc.value())
             if mass_conc_g <= 0:
                 QMessageBox.warning(self, "Ошибка", "Массовая концентрация должна быть > 0.")
@@ -2639,9 +2673,9 @@ class MainWindow(QMainWindow):
                 f.write(f"L = {p.get('path_length_m', 1.0):.6f} м\n")
                 f.write(f"Input mode: {p['input_mode']}\n")
                 f.write(f"Target value: {p['target_value']:.6e}\n")
-                if p['input_mode'] in (INV_ALPHA, INV_TAU, INV_TRANSMITTANCE, INV_EFFECTIVE_TRANSMITTANCE):
+                if inverse_requires_mass_conc(p['input_mode']):
                     f.write(f"Mass concentration: {p['mass_conc_g']:.6e} г/м³\n")
-                if p['input_mode'] in (INV_TRANSMITTANCE, INV_EFFECTIVE_TRANSMITTANCE) and res.get('equivalent_mec') is not None:
+                if inverse_uses_transmittance(p['input_mode']) and res.get('equivalent_mec') is not None:
                     f.write(f"Equivalent -ln(T)/(rho_mass*L): {res['equivalent_mec']:.6e} м²/г\n")
                 f.write(f"Target {metric_label}: {target_mec:.6e}{units_suffix}\n")
                 f.write(f"Search range: [{p['D_min_um']:.4f}, {p['D_max_um']:.4f}] мкм\n")
