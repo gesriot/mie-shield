@@ -1152,7 +1152,7 @@ class MainWindow(QMainWindow):
         self.conc_value.setValue(1.2)
         self.conc_value.setAlignment(Qt.AlignRight)
         self.conc_value.setSuffix(" г/м³")
-        self.path_length = self._spin_ndec(DEFAULTS["PATH_LENGTH_M"], 0.001, 1000000, dec=3, step=0.1)
+        self.path_length = self._spin_ndec(DEFAULTS["PATH_LENGTH_M"], 0.1, 1000000, dec=1, step=0.1)
         self.path_length.setSuffix(" м")
         l_conc.addRow("Тип:", self.conc_mode)
         l_conc.addRow("Значение:", self.conc_value)
@@ -1205,7 +1205,7 @@ class MainWindow(QMainWindow):
         l_input.addRow(self.lbl_inv_wl_step, self.inv_wl_step)
         self._on_inv_wl_mode_changed(self.inv_wl_mode.currentText())
 
-        self.inv_path_length = self._spin_ndec(DEFAULTS["PATH_LENGTH_M"], 0.001, 1000000, dec=3, step=0.1)
+        self.inv_path_length = self._spin_ndec(DEFAULTS["PATH_LENGTH_M"], 0.1, 1000000, dec=1, step=0.1)
         self.inv_path_length.setSuffix(" м")
         l_input.addRow("L трассы:", self.inv_path_length)
 
@@ -1312,7 +1312,7 @@ class MainWindow(QMainWindow):
         l_wl.addRow("λ min (мкм):", self.opt_wl_min)
         l_wl.addRow("λ max (мкм):", self.opt_wl_max)
         l_wl.addRow("Шаг λ (мкм):", self.opt_wl_step)
-        self.opt_path_length = self._spin_ndec(DEFAULTS["PATH_LENGTH_M"], 0.001, 1000000, dec=3, step=0.1)
+        self.opt_path_length = self._spin_ndec(DEFAULTS["PATH_LENGTH_M"], 0.1, 1000000, dec=1, step=0.1)
         self.opt_path_length.setSuffix(" м")
         l_wl.addRow("L трассы:", self.opt_path_length)
 
