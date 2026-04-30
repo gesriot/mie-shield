@@ -6,6 +6,12 @@ Mie scattering calculator for extinction, MEC, and transmission in airborne part
 
 The application is intended for engineering and experimental analysis of aerodisperse particle media: soot, metals, salts, oxides, and mixed particles with user-defined number fractions.
 
+![mie-shield optimization tab](docs/screenshot-optimization.png)
+
+## Download
+
+Pre-built binaries for macOS (arm64) and Windows (x64) are attached to each [GitHub Release](../../releases). Linux is not packaged – run from source instead (see [Running](#running)).
+
 ## Features
 
 - Forward Mie calculation for monodisperse particles.
@@ -37,123 +43,48 @@ The built-in material database currently includes:
 
 Optical constants are documented in [complex-refractive-indices.md](complex-refractive-indices.md). Some materials use literature-based models, while others use approximate reconstructed models where complete measured `n(lambda), k(lambda)` tables are unavailable. Treat approximate materials accordingly.
 
-## Installation
+## Running
 
-The project uses [`uv`](https://docs.astral.sh/uv/) and includes a lock file.
+The Python application runs on any platform supported by its dependencies (PySide6, NumPy, SciPy, Matplotlib, PyMieScatt). The project uses [`uv`](https://docs.astral.sh/uv/) and pins Python 3.14:
 
 ```bash
 uv sync --locked --group dev
-```
-
-## Running
-
-```bash
 uv run --locked python mie_shield.py
 ```
 
 The main window has three calculation tabs:
 
-- **Forward problem** (`Прямая задача`)
-- **Inverse problem** (`Обратная задача`)
-- **Optimization** (`Оптимизация`)
-
-## Installation
-
-The project uses [`uv`](https://docs.astral.sh/uv/) and includes a lock file.
-
-```bash
-uv sync --locked --group dev
-```
-
-## Running
-
-```bash
-uv run --locked python mie_shield.py
-```
-
-The main window has three calculation tabs:
-
-- **Forward problem** (`Прямая задача`)
-- **Inverse problem** (`Обратная задача`)
-- **Optimization** (`Оптимизация`)
+- Forward problem (`Прямая задача`)
+- Inverse problem (`Обратная задача`)
+- Optimization (`Оптимизация`)
 
 ## Packaging
 
-Build tools are intentionally kept out of the project runtime dependencies.
-The application depends on PySide6, NumPy, SciPy, Matplotlib, and PyMieScatt;
-packaging additionally uses Nuitka, but only inside a local build environment
-created by the scripts under `scripts/`.
-
-Generated artifacts are written to `dist/` and should not be committed. Attach
-DMG/ZIP files to GitHub Releases instead.
+Binary builds are produced and tested only for macOS (arm64) and Windows (x64). Build tools are kept out of the runtime dependencies; packaging uses Nuitka inside a local environment created by the scripts under `scripts/`. Generated artifacts are written to `dist/`.
 
 ### macOS DMG
 
-Requirements:
-
-- macOS on the target architecture.
-- `uv`.
-- Python 3.14 available to `uv`.
-- Xcode Command Line Tools (`clang`, `codesign`, `hdiutil`).
-
-Build:
+Requirements: macOS on the target architecture, `uv`, Python 3.14, Xcode Command Line Tools (`clang`, `codesign`, `hdiutil`).
 
 ```bash
 ./scripts/package-macos.sh
 ```
 
-The script creates `.build-venv/macos`, installs runtime dependencies plus
-build-only Nuitka there, builds a signed ad-hoc `.app`, and packages it into:
-
-```text
-dist/MieShield-<version>-macos-arm64.dmg
-```
-
-If `icon.png` is present in the repository root, the script crops it to the
-visible rounded-square frame, creates transparent macOS icon corners, and
-embeds the generated `.icns` in the app bundle.
-
-Useful overrides:
-
-```bash
-PYTHON_VERSION=3.14 ARCH=arm64 PRODUCT_NAME=MieShield ./scripts/package-macos.sh
-```
-
-The release build uses Nuitka with link-time optimization and optimized Python
-runtime flags:
-
-```text
---lto=yes --python-flag=-O --python-flag=no_docstrings
-```
+Output: `dist/MieShield-<version>-macos-arm64.dmg`. If `icon.png` is present, it is embedded as the app icon. The script honors `PYTHON_VERSION`, `ARCH`, and `PRODUCT_NAME` env vars.
 
 ### Windows ZIP
 
-Windows builds should be produced on Windows, not cross-compiled from macOS.
-The first Windows packaging target is a standalone Nuitka folder zipped for
-release distribution.
-
-Requirements:
-
-- Windows.
-- `uv`.
-- Python 3.14 available to `uv`.
-- Microsoft C++ Build Tools.
-
-Build from PowerShell:
+Requirements: Windows, `uv`, Python 3.14, Microsoft C++ Build Tools.
 
 ```powershell
 .\scripts\package-windows.ps1
 ```
 
-The script creates `.build-venv/windows`, installs build-only Nuitka there,
-builds a GUI executable without a console window, and writes:
+Output: `dist/MieShield-<version>-windows-x64.zip`.
 
-```text
-dist/MieShield-<version>-windows-x64.zip
-```
+### Releases
 
-An installer can be added later with Inno Setup, WiX, or NSIS while keeping the
-same Nuitka build output as input.
+Pushing a `v*` tag triggers the `Build release artifacts` workflow, which builds both artifacts and attaches them to the GitHub Release.
 
 ## Core Quantities
 
