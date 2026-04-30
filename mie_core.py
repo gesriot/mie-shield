@@ -1,27 +1,9 @@
-"""Pure-Python optical / Mie computational core for mie_shield.
+"""Mie computational core for mie_shield.
 
-No Qt or matplotlib dependencies; this module is safe to import in tests and
-in any non-GUI context. The Qt-based workers, GUI, and main entry point live
-in mie_shield.py.
-
-Public surface (consumed by mie_shield.py and tests):
-
-* MATERIALS_DB
-* TypeAliases: ConcMode, DistributionMode, InverseInputMode,
-  InverseWavelengthMode, OptimizationMode, OptimizationCriterion,
-  RIModel, Fractions, DensityMap, ForwardRow
-* Mode constants: CONC_MASS/CONC_NUMBER, DIST_*, INV_WL_*, INV_*,
-  OPT_*, plus DENSITY_FALLBACK and TAU_UNDERFLOW_LIMIT
-* Core functions: make_wavelengths, get_ri, material_density_map,
-  mixture_density, monodisperse_particle_mass_kg,
-  distributed_particle_mass_kg, resolve_concentration,
-  transmittance_from_tau, make_forward_row, summarize_forward_rows,
-  inverse_requires_mass_conc, inverse_uses_transmittance,
-  inverse_metric_label, inverse_metric_units, inverse_solution_names,
-  inverse_transmittance_is_reference, inverse_shows_avg_mec_reference,
-  resolve_inverse_target, inverse_metric_from_mec_values,
-  lognormal_pdf, custom_pdf, safe_mie_qext, qext_to_cext_um2,
-  compute_qext_avg, compute_mec_for_d, nan_safe_bisect
+Contains the data and numerical helpers used by the GUI workers:
+material properties, refractive-index models, mode constants, concentration
+conversion, forward-result aggregation, inverse-problem metrics, and safe MieQ
+wrappers.
 """
 
 from typing import Callable, Iterable, Literal, TypeAlias

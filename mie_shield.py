@@ -32,9 +32,8 @@ from PySide6.QtWidgets import (
     QTabWidget,
 )
 
-# All pure-computational primitives live in mie_core. The list is intentionally
-# explicit (no `from mie_core import *`) so the GUI/worker layer's dependency
-# on the core surface is auditable at a glance.
+# Explicit core imports keep the boundary between numerical code and the
+# Qt worker/UI layer visible.
 from mie_core import (
     # Reference data
     MATERIALS_DB,
