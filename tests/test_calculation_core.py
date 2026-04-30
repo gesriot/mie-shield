@@ -127,6 +127,19 @@ def test_zincl2_visible_index_and_density_are_in_database():
     assert m.imag < 1e-3
 
 
+def test_wavelength_step_spinboxes_use_two_decimal_precision():
+    app = ms.QApplication.instance() or ms.QApplication([])
+    window = ms.MainWindow()
+    try:
+        for spinbox in (window.s_wl_step, window.inv_wl_step, window.opt_wl_step):
+            assert spinbox.decimals() == 2
+            assert spinbox.singleStep() == pytest.approx(0.01)
+            spinbox.setValue(0.05)
+            assert spinbox.value() == pytest.approx(0.05)
+    finally:
+        window.close()
+
+
 def test_qext_to_cext_um2_uses_geometric_cross_section():
     assert ms.qext_to_cext_um2(2.0, 1000.0) == pytest.approx(math.pi / 2.0)
 
