@@ -4,7 +4,11 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+import mie_core as mc
 import mie_shield as ms
+
+# Patch dependencies in the module where the tested function resolves them:
+# core helpers use mc.*, shield workers use ms.* globals.
 
 
 def run_worker(worker):
@@ -43,7 +47,7 @@ def mono_params(**overrides):
         "fractions": {"C": 1.0},
         "wl_range": (0.5, 0.6, 0.1),
         "path_length_m": 2.7,
-        "conc_mode": "Массовая",
+        "conc_mode": ms.CONC_MASS,
         "conc_value": 1.2,
         "monodisperse": True,
         "D_um": 1.0,
@@ -57,7 +61,7 @@ def distribution_params(dist_type, **overrides):
         "fractions": {"C": 0.7, "ZnCl2": 0.3},
         "wl_range": (0.5, 0.6, 0.1),
         "path_length_m": 2.7,
-        "conc_mode": "Массовая",
+        "conc_mode": ms.CONC_MASS,
         "conc_value": 1.2,
         "monodisperse": False,
         "d_range": (0.1, 1.0),
@@ -123,8 +127,113 @@ def test_zincl2_visible_index_and_density_are_in_database():
     assert m.imag < 1e-3
 
 
+def test_qext_to_cext_um2_uses_geometric_cross_section():
+    assert ms.qext_to_cext_um2(2.0, 1000.0) == pytest.approx(math.pi / 2.0)
+
+
+def test_safe_mie_qext_matches_direct_mieq():
+    lam_nm = 500.0
+    D_nm = 1000.0
+    m = ms.get_ri("C", lam_nm / 1000.0)
+    expected = mc.MieQ(m, lam_nm, D_nm, asDict=False)[0]
+
+    q_ext, ok = ms.safe_mie_qext(m, lam_nm, D_nm)
+
+    assert ok is True
+    assert q_ext == pytest.approx(expected)
+
+
+def test_safe_mie_qext_returns_failure_on_exception(monkeypatch):
+    def failing_mieq(_m, _wavelength_nm, _diameter_nm, asDict=False):
+        raise RuntimeError("forced Mie failure")
+
+    monkeypatch.setattr(mc, "MieQ", failing_mieq)
+
+    assert ms.safe_mie_qext(1.5 + 0.0j, 500.0, 1000.0) == (0.0, False)
+
+
+@pytest.mark.parametrize(
+    ("q_ext", "expected"),
+    [
+        (np.nan, (0.0, False)),
+        (-1e-8, (0.0, False)),
+        (-5e-10, (0.0, True)),
+    ],
+)
+def test_safe_mie_qext_handles_invalid_and_small_negative_values(monkeypatch, q_ext, expected):
+    monkeypatch.setattr(mc, "MieQ", fake_mieq(q_ext))
+
+    assert ms.safe_mie_qext(1.5 + 0.0j, 500.0, 1000.0) == expected
+
+
+def test_conc_mode_constants_are_machine_strings():
+    # ConcMode values are decoupled from UI labels (Russian "Массовая"/"Числовая"
+    # live only in the QComboBox addItem() text; userData holds these constants).
+    assert ms.CONC_MASS == "mass"
+    assert ms.CONC_NUMBER == "number"
+
+
+def test_resolve_concentration_rejects_unknown_mode():
+    # Guards against silent fall-through when a non-canonical string slips in
+    # (e.g. an old UI label leaking into a worker dict). Without this check
+    # an unknown mode was silently treated as mass concentration.
+    with pytest.raises(ValueError, match="Неизвестный режим концентрации"):
+        ms.resolve_concentration("Числовая", 5e8, 1e-15)
+
+
+def test_resolve_concentration_round_trip_mass_and_number():
+    avg_mass_kg = 1.0e-15  # arbitrary positive
+    mass_conc_g = 1.5
+
+    num_from_mass, mass_back = ms.resolve_concentration(ms.CONC_MASS, mass_conc_g, avg_mass_kg)
+    expected_num = (mass_conc_g * 1e-3) / avg_mass_kg
+    assert num_from_mass == pytest.approx(expected_num)
+    assert mass_back == pytest.approx(mass_conc_g)
+
+    num_back, mass_from_num = ms.resolve_concentration(ms.CONC_NUMBER, num_from_mass, avg_mass_kg)
+    assert num_back == pytest.approx(expected_num)
+    assert mass_from_num == pytest.approx(mass_conc_g)
+
+
+def test_compute_qext_avg_single_material(monkeypatch):
+    monkeypatch.setattr(mc, "MieQ", fake_mieq(1.25))
+
+    qext_avg, lost_weight = ms.compute_qext_avg({"C": 1.0}, 0.5, 1.0)
+
+    assert qext_avg == pytest.approx(1.25)
+    assert lost_weight == pytest.approx(0.0)
+
+
+def test_compute_qext_avg_weights_material_qext(monkeypatch):
+    def fake_get_ri(material, _lam_um):
+        return material
+
+    def material_mieq(material, _wavelength_nm, _diameter_nm, asDict=False):
+        return ({"C": 1.0, "ZnCl2": 3.0}[material], 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+
+    monkeypatch.setattr(mc, "get_ri", fake_get_ri)
+    monkeypatch.setattr(mc, "MieQ", material_mieq)
+
+    qext_avg, lost_weight = ms.compute_qext_avg({"C": 0.25, "ZnCl2": 0.75}, 0.5, 1.0)
+
+    assert qext_avg == pytest.approx(2.5)
+    assert lost_weight == pytest.approx(0.0)
+
+
+def test_compute_qext_avg_accumulates_lost_weight(monkeypatch):
+    def failing_mieq(_m, _wavelength_nm, _diameter_nm, asDict=False):
+        raise RuntimeError("forced Mie failure")
+
+    monkeypatch.setattr(mc, "MieQ", failing_mieq)
+
+    qext_avg, lost_weight = ms.compute_qext_avg({"C": 0.4, "ZnCl2": 0.6}, 0.5, 1.0)
+
+    assert qext_avg == pytest.approx(0.0)
+    assert lost_weight == pytest.approx(1.0)
+
+
 def test_compute_mec_for_d_uses_qext_average(monkeypatch):
-    monkeypatch.setattr(ms, "MieQ", fake_mieq(2.0))
+    monkeypatch.setattr(mc, "MieQ", fake_mieq(2.0))
     fractions = {"C": 0.25, "ZnCl2": 0.75}
     rho_avg = 0.25 * 1800.0 + 0.75 * 2907.0
 
@@ -138,7 +247,7 @@ def test_compute_mec_for_d_returns_nan_when_too_much_mie_weight_is_lost(monkeypa
     def failing_mieq(_m, _wavelength_nm, _diameter_nm, asDict=False):
         raise RuntimeError("forced Mie failure")
 
-    monkeypatch.setattr(ms, "MieQ", failing_mieq)
+    monkeypatch.setattr(mc, "MieQ", failing_mieq)
 
     mec = ms.compute_mec_for_d(1.0, {"C": 1.0}, 1800.0, 0.5)
 
@@ -157,7 +266,7 @@ def test_nan_safe_bisect_handles_regular_and_nan_midpoints():
 
 
 def test_calculation_worker_monodisperse_mass_concentration_uses_path_length(monkeypatch):
-    monkeypatch.setattr(ms, "MieQ", fake_mieq(2.0))
+    monkeypatch.setattr(mc, "MieQ", fake_mieq(2.0))
 
     out = run_worker(ms.CalculationWorker(mono_params()))
 
@@ -180,7 +289,7 @@ def test_calculation_worker_monodisperse_mass_concentration_uses_path_length(mon
 
 
 def test_calculation_worker_monodisperse_number_concentration(monkeypatch):
-    monkeypatch.setattr(ms, "MieQ", fake_mieq(2.0))
+    monkeypatch.setattr(mc, "MieQ", fake_mieq(2.0))
     number_conc = 5.0e8
     expected = expected_mono_values(mass_conc_g=1.0)
     expected_mass_conc_g = number_conc * expected.avg_mass_kg * 1000.0
@@ -188,7 +297,7 @@ def test_calculation_worker_monodisperse_number_concentration(monkeypatch):
 
     out = run_worker(
         ms.CalculationWorker(
-            mono_params(conc_mode="Числовая", conc_value=number_conc)
+            mono_params(conc_mode=ms.CONC_NUMBER, conc_value=number_conc)
         )
     )
 
@@ -208,7 +317,7 @@ def test_calculation_worker_monodisperse_number_concentration(monkeypatch):
     ],
 )
 def test_calculation_worker_polydisperse_distribution_branches(monkeypatch, dist_type, expected_log):
-    monkeypatch.setattr(ms, "MieQ", fake_mieq(2.0))
+    monkeypatch.setattr(mc, "MieQ", fake_mieq(2.0))
 
     out = run_worker(ms.CalculationWorker(distribution_params(dist_type)))
 
@@ -226,7 +335,7 @@ def test_calculation_worker_polydisperse_distribution_branches(monkeypatch, dist
 
 
 def test_calculation_worker_rejects_invalid_path_length(monkeypatch):
-    monkeypatch.setattr(ms, "MieQ", fake_mieq(2.0))
+    monkeypatch.setattr(mc, "MieQ", fake_mieq(2.0))
 
     out = run_worker(ms.CalculationWorker(mono_params(path_length_m=0.0)))
 
