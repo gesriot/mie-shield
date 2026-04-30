@@ -69,7 +69,7 @@ DEFAULTS = {
     "INV_N_SCAN": 1000,
 }
 
-ConcMode: TypeAlias = Literal["Массовая", "Числовая"]
+ConcMode: TypeAlias = Literal["mass", "number"]
 DistributionMode: TypeAlias = Literal["monodisperse", "lognormal", "custom"]
 InverseWavelengthMode: TypeAlias = Literal["single", "range"]
 InverseInputMode: TypeAlias = Literal["mec", "alpha", "tau", "transmittance", "effective_transmittance"]
@@ -80,8 +80,8 @@ Fractions: TypeAlias = dict[str, float]
 DensityMap: TypeAlias = dict[str, float]
 ForwardRow: TypeAlias = dict[str, object]
 
-CONC_MASS: ConcMode = "Массовая"
-CONC_NUMBER: ConcMode = "Числовая"
+CONC_MASS: ConcMode = "mass"
+CONC_NUMBER: ConcMode = "number"
 
 DIST_MONODISPERSE: DistributionMode = "monodisperse"
 DIST_LOGNORMAL: DistributionMode = "lognormal"
