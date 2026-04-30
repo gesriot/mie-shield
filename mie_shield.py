@@ -509,6 +509,26 @@ def custom_pdf(d, A, mu, sigma):
     d = np.maximum(d, 1e-12)
     return A * (1.0 / (d * sigma * np.sqrt(2 * np.pi))) * np.exp(-(np.log(d) - mu) ** 2 / (2 * sigma ** 2))
 
+def safe_mie_qext(m: complex, lam_nm: float, D_nm: float) -> tuple[float, bool]:
+    # Returns (q_ext, ok). q_ext is clamped to >= 0; ok=False on MieQ failure
+    # (exception, NaN/inf, or q_ext < -1e-9). Small negative slack q in (-1e-9, 0)
+    # is silently clipped to 0 (numerical noise, not a real failure).
+    try:
+        q_ext = MieQ(m, lam_nm, D_nm, asDict=False)[0]
+    except Exception:
+        return 0.0, False
+    if (not np.isfinite(q_ext)) or (q_ext < -1e-9):
+        return 0.0, False
+    if q_ext < 0.0:
+        q_ext = 0.0
+    return float(q_ext), True
+
+
+def qext_to_cext_um2(q_ext: float, D_nm: float) -> float:
+    geom_nm2 = np.pi * (D_nm ** 2) / 4.0
+    return q_ext * geom_nm2 / 1e6
+
+
 def compute_qext_avg(fractions, lam_um, D_um):
     lam_nm = lam_um * 1000.0
     D_nm = D_um * 1000.0
@@ -516,17 +536,10 @@ def compute_qext_avg(fractions, lam_um, D_um):
     lost_weight = 0.0
     for mat_code, num_fraction in fractions.items():
         m = get_ri(mat_code, lam_um)
-        try:
-            q_ext = MieQ(m, lam_nm, D_nm, asDict=False)[0]
-            if (not np.isfinite(q_ext)) or (q_ext < -1e-9):
-                q_ext = 0.0
-                lost_weight += float(num_fraction)
-            elif q_ext < 0.0:
-                q_ext = 0.0
-        except Exception:
-            q_ext = 0.0
+        q_ext, ok = safe_mie_qext(m, lam_nm, D_nm)
+        if not ok:
             lost_weight += float(num_fraction)
-        qext_avg += float(num_fraction) * float(q_ext)
+        qext_avg += float(num_fraction) * q_ext
     return qext_avg, lost_weight
 
 def compute_mec_for_d(D_um, fractions, rho_avg, lam_um):
@@ -630,7 +643,6 @@ class CalculationWorker(QThread):
                 num_conc, mass_conc_g = resolve_concentration(conc_mode, conc_value, avg_mass_mixture)
 
                 D_nm = D_um * 1000.0
-                geom_nm2 = np.pi * (D_nm ** 2) / 4.0
 
                 header = f"{'WL(um)':>10} | {'Cext(um^2)':>15} | {'alpha(1/m)':>15} | {'tau=alpha*L':>15} | {'T':>12} | {'MEC(m^2/g)':>15}"
                 self.log_signal.emit(header)
@@ -650,19 +662,13 @@ class CalculationWorker(QThread):
 
                     for mat_code, num_fraction in fractions.items():
                         m = get_ri(mat_code, lam_um)
-                        try:
-                            q_ext = MieQ(m, lam_nm, D_nm, asDict=False)[0]
-                            if (not np.isfinite(q_ext)) or (q_ext < -1e-9):
-                                raise ValueError("bad q_ext")
-                            if q_ext < 0.0:
-                                q_ext = 0.0
-                            c_ext_um2 = (q_ext * geom_nm2) / 1e6
-                        except Exception:
-                            c_ext_um2 = 0.0
+                        q_ext, ok = safe_mie_qext(m, lam_nm, D_nm)
+                        c_ext_um2 = qext_to_cext_um2(q_ext, D_nm)
+                        if not ok:
                             mixture_lost_weight += float(num_fraction)
 
-                        c_ext_parts[mat_code] = float(c_ext_um2)
-                        c_ext_total_mix += float(num_fraction) * float(c_ext_um2)
+                        c_ext_parts[mat_code] = c_ext_um2
+                        c_ext_total_mix += float(num_fraction) * c_ext_um2
 
                     if mixture_lost_weight > 0.02:
                         msg = f"Критический сбой Mie на {lam_um:.3f} мкм. Потеряно {mixture_lost_weight*100:.1f}% числовой доли смеси."
@@ -793,19 +799,10 @@ class CalculationWorker(QThread):
                         mat_failed_mask = np.zeros_like(diameters_um, dtype=bool)
 
                         for j, d_nm in enumerate(diameters_nm):
-                            try:
-                                q_ext = MieQ(m, lam_nm, d_nm, asDict=False)[0]
-                                if (not np.isfinite(q_ext)) or (q_ext < -1e-9):
-                                    mat_failed_mask[j] = True
-                                    c_ext_vals_um2[j] = 0.0
-                                else:
-                                    if q_ext < 0.0:
-                                        q_ext = 0.0
-                                    geom_nm2 = np.pi * (d_nm**2) / 4.0
-                                    c_ext_vals_um2[j] = (q_ext * geom_nm2) / 1e6
-                            except Exception:
+                            q_ext, ok = safe_mie_qext(m, lam_nm, d_nm)
+                            if not ok:
                                 mat_failed_mask[j] = True
-                                c_ext_vals_um2[j] = 0.0
+                            c_ext_vals_um2[j] = qext_to_cext_um2(q_ext, d_nm)
 
                         integrand = c_ext_vals_um2 * pdf_normalized
                         avg_c_ext_mat = float(scipy.integrate.trapz(integrand, diameters_um))
