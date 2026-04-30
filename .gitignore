@@ -1,8 +1,15 @@
 .venv/
+.build-venv/
 .uv-cache/
+.nuitka-cache/
+.mplconfig/
+build/
+dist/
+icon-rounded.png
 __pycache__/
 .pytest_cache/
 .pytest-cache/
 *.py[cod]
+nuitka-crash-report.xml
 
 .DS_Store
