@@ -82,9 +82,18 @@ Requirements: Windows, `uv`, Python 3.14, Microsoft C++ Build Tools.
 
 Output: `dist/MieShield-<version>-windows-x64.zip`.
 
+To build a single executable instead of a standalone folder archive:
+
+```powershell
+.\scripts\package-windows.ps1 -Mode onefile
+```
+
+Output: `dist/windows/MieShield.exe`.
+
 ### Releases
 
 Pushing a `v*` tag triggers the `Build release artifacts` workflow, which builds both artifacts and attaches them to the GitHub Release.
+Manual workflow runs accept a `release_tag` input, defaulting to `v1.0.0`, and overwrite existing release assets for that tag. The release workflow publishes the macOS DMG and a Windows onefile `MieShield.exe`.
 
 The Windows build disables Nuitka link-time optimization by default because the
 MSVC linker can run out of heap when compiling the PySide6, Matplotlib, SciPy,
@@ -92,6 +101,7 @@ and NumPy standalone bundle. If your build machine handles it, you can opt in:
 
 ```powershell
 .\scripts\package-windows.ps1 -Lto yes
+.\scripts\package-windows.ps1 -Mode onefile -Lto yes
 ```
 
 ## Core Quantities

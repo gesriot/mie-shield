@@ -2,6 +2,12 @@ name: Build release artifacts
 
 on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag to update"
+        required: true
+        default: "v1.0.0"
+        type: string
   push:
     tags:
       - "v*"
@@ -36,7 +42,7 @@ jobs:
           path: dist/*.dmg
 
   windows:
-    name: Windows ZIP
+    name: Windows EXE
     runs-on: windows-latest
 
     steps:
@@ -51,15 +57,15 @@ jobs:
         with:
           python-version: "3.14"
 
-      - name: Build Windows ZIP
+      - name: Build Windows EXE
         shell: pwsh
-        run: ./scripts/package-windows.ps1
+        run: ./scripts/package-windows.ps1 -Mode onefile -Lto yes
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: mie-shield-windows
-          path: dist/*windows*.zip
+          name: mie-shield-windows-exe
+          path: dist/windows/MieShield.exe
 
   release:
     name: GitHub Release
@@ -67,7 +73,7 @@ jobs:
     needs:
       - macos
       - windows
-    if: startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Download artifacts
@@ -78,4 +84,7 @@ jobs:
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
           files: release-assets/**/*
+          overwrite_files: true
+          fail_on_unmatched_files: true

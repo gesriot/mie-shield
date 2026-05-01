@@ -3,6 +3,8 @@ param(
     [string]$ProductName = "MieShield",
     [string]$BuildEnv = ".build-venv/windows",
     [string]$OutputDir = "dist/windows",
+    [ValidateSet("standalone", "onefile")]
+    [string]$Mode = "standalone",
     [ValidateSet("yes", "no", "auto")]
     [string]$Lto = "no"
 )
@@ -40,6 +42,7 @@ if ($LASTEXITCODE -ne 0) {
     throw "Reading project version failed with exit code $LASTEXITCODE"
 }
 $IconPath = Join-Path $RootDir "dist/icons/$ProductName.ico"
+$ExePath = Join-Path $OutputPath "$ProductName.exe"
 $ZipPath = Join-Path $RootDir "dist/$ProductName-$Version-windows-x64.zip"
 
 Write-Host "==> Installing runtime dependencies into build environment"
@@ -58,11 +61,11 @@ if (Test-Path "icon.png") {
 }
 
 Write-Host "==> Removing previous Windows build output"
-Remove-Item -Recurse -Force "$OutputPath/mie_shield.dist", "$OutputPath/mie_shield.build", $ZipPath -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force "$OutputPath/mie_shield.dist", "$OutputPath/mie_shield.build", "$OutputPath/mie_shield.onefile-build", $ExePath, $ZipPath -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force $OutputPath | Out-Null
 
 $NuitkaArgs = @(
-    "--mode=standalone",
+    "--mode=$Mode",
     "--windows-console-mode=disable",
     "--enable-plugin=pyside6",
     "--include-package=PyMieScatt",
@@ -85,9 +88,17 @@ if (Test-Path $IconPath) {
 Write-Host "==> Building Windows application with Nuitka"
 Invoke-Checked { & "$BuildEnvPath/Scripts/python.exe" -m nuitka @NuitkaArgs mie_shield.py } "Nuitka build"
 
-Write-Host "==> Creating ZIP artifact"
-Compress-Archive -Path "$OutputPath/mie_shield.dist/*" -DestinationPath $ZipPath -Force
+if ($Mode -eq "standalone") {
+    Write-Host "==> Creating ZIP artifact"
+    Compress-Archive -Path "$OutputPath/mie_shield.dist/*" -DestinationPath $ZipPath -Force
+} elseif (-not (Test-Path $ExePath)) {
+    throw "Expected onefile executable was not created: $ExePath"
+}
 
 Write-Host "==> Done"
-Write-Host "Dist: $OutputPath/mie_shield.dist"
-Write-Host "ZIP:  $ZipPath"
+if ($Mode -eq "standalone") {
+    Write-Host "Dist: $OutputPath/mie_shield.dist"
+    Write-Host "ZIP:  $ZipPath"
+} else {
+    Write-Host "EXE:  $ExePath"
+}
