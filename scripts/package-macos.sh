@@ -17,7 +17,7 @@ export NUITKA_CACHE_DIR="${NUITKA_CACHE_DIR:-$ROOT_DIR/.nuitka-cache}"
 export MPLCONFIGDIR="${MPLCONFIGDIR:-$ROOT_DIR/.mplconfig}"
 
 echo "==> Creating build environment: $BUILD_ENV"
-uv venv --python "$PYTHON_VERSION" "$BUILD_ENV"
+uv venv --clear --python "$PYTHON_VERSION" "$BUILD_ENV"
 
 VERSION="${VERSION:-$("$BUILD_ENV/bin/python" -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')}"
 APP_PATH="$OUTPUT_DIR/mie_shield.app"
