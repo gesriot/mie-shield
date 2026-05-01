@@ -85,6 +85,10 @@ if (Test-Path $IconPath) {
     $NuitkaArgs += "--windows-icon-from-ico=$IconPath"
 }
 
+if (Test-Path "icon.png") {
+    $NuitkaArgs += "--include-data-files=icon.png=icon.png"
+}
+
 Write-Host "==> Building Windows application with Nuitka"
 Invoke-Checked { & "$BuildEnvPath/Scripts/python.exe" -m nuitka @NuitkaArgs mie_shield.py } "Nuitka build"
 

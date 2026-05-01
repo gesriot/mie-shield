@@ -140,6 +140,17 @@ def test_wavelength_step_spinboxes_use_two_decimal_precision():
         window.close()
 
 
+def test_main_window_uses_application_icon():
+    app = ms.QApplication.instance() or ms.QApplication([])
+    app.setWindowIcon(ms._application_icon())
+    window = ms.MainWindow()
+    try:
+        assert not app.windowIcon().isNull()
+        assert not window.windowIcon().isNull()
+    finally:
+        window.close()
+
+
 def test_qext_to_cext_um2_uses_geometric_cross_section():
     assert ms.qext_to_cext_um2(2.0, 1000.0) == pytest.approx(math.pi / 2.0)
 

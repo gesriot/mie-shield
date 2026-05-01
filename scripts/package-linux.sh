@@ -48,6 +48,10 @@ NUITKA_ARGS=(
   --output-dir="$OUTPUT_DIR"
 )
 
+if [[ -f "$ROOT_DIR/icon.png" ]]; then
+  NUITKA_ARGS+=(--include-data-files=icon.png=icon.png)
+fi
+
 echo "==> Building Linux application with Nuitka"
 "$BUILD_ENV/bin/python" -m nuitka "${NUITKA_ARGS[@]}" mie_shield.py
 

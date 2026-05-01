@@ -54,6 +54,7 @@ if [[ -f "$ROOT_DIR/icon.png" ]]; then
     --rounded-png "$ROUNDED_ICON" \
     --icns "$ICON_ICNS"
   NUITKA_ARGS+=(--macos-app-icon="$ICON_ICNS")
+  NUITKA_ARGS+=(--include-data-files=icon.png=icon.png)
 else
   echo "==> icon.png not found; building without a custom icon"
   NUITKA_ARGS+=(--macos-app-icon=none)

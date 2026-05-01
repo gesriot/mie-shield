@@ -1,6 +1,7 @@
 import sys
 import traceback
 import types
+from pathlib import Path
 
 import numpy as np
 
@@ -19,7 +20,7 @@ import scipy.optimize
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from PySide6.QtCore import Qt, QThread, QLocale, Signal
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -41,6 +42,31 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QTabWidget,
 )
+
+APP_ID = "com.local.MieShield"
+APP_NAME = "MieShield"
+
+
+def _resource_path(name: str) -> Path:
+    return Path(__file__).resolve().with_name(name)
+
+
+def _application_icon() -> QIcon:
+    icon_path = _resource_path("icon.png")
+    if icon_path.exists():
+        return QIcon(str(icon_path))
+    return QIcon()
+
+
+def _set_windows_app_user_model_id() -> None:
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_ID)
+    except Exception:
+        pass
 
 # Explicit core imports keep the boundary between numerical code and the
 # Qt worker/UI layer visible.
@@ -992,6 +1018,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Mie Extinction Calculator (Alpha + MEC)")
+        self.setWindowIcon(_application_icon())
         self.resize(1250, 950)
         self.last_results = None
         self.last_inverse_results = None
@@ -2244,7 +2271,11 @@ class MainWindow(QMainWindow):
 
 
 if __name__ == "__main__":
+    _set_windows_app_user_model_id()
+    QApplication.setApplicationName(APP_NAME)
+    QApplication.setDesktopFileName(APP_NAME)
     app = QApplication(sys.argv)
+    app.setWindowIcon(_application_icon())
     app.setStyle("Fusion")
     w = MainWindow()
     w.show()
