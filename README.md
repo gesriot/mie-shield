@@ -60,7 +60,7 @@ The main window has three calculation tabs:
 
 ## Packaging
 
-Binary builds are produced and tested only for macOS (arm64) and Windows (x64). Build tools are kept out of the runtime dependencies; packaging uses Nuitka inside a local environment created by the scripts under `scripts/`. Generated artifacts are written to `dist/`.
+Binary builds are produced and tested for macOS (arm64), Windows (x64), and Linux (x64). Build tools are kept out of the runtime dependencies; packaging uses Nuitka inside a local environment created by the scripts under `scripts/`. Generated artifacts are written to `dist/`.
 
 ### macOS DMG
 
@@ -90,10 +90,20 @@ To build a single executable instead of a standalone folder archive:
 
 Output: `dist/windows/MieShield.exe`.
 
+### Linux tarball
+
+Requirements: Linux x64, `uv`, Python 3.14, and a working C compiler toolchain.
+
+```bash
+./scripts/package-linux.sh
+```
+
+Output: `dist/MieShield-<version>-linux-x64.tar.gz`. The archive contains a standalone `mie_shield.dist` folder with the `MieShield` executable and its bundled dependencies. The script honors `PYTHON_VERSION`, `ARCH`, `PRODUCT_NAME`, and `LTO` env vars.
+
 ### Releases
 
-Pushing a `v*` tag triggers the `Build release artifacts` workflow, which builds both artifacts and attaches them to the GitHub Release.
-Manual workflow runs accept a `release_tag` input, defaulting to `v1.0.0`, and overwrite existing release assets for that tag. The release workflow publishes the macOS DMG and a Windows onefile `MieShield.exe`.
+Pushing a `v*` tag triggers the `Build release artifacts` workflow, which builds release artifacts and attaches them to the GitHub Release.
+Manual workflow runs accept a `release_tag` input, defaulting to `v1.0.0`, and overwrite existing release assets for that tag. The release workflow publishes the macOS DMG, Windows onefile `MieShield.exe`, and Linux x64 tarball.
 
 The Windows build disables Nuitka link-time optimization by default because the
 MSVC linker can run out of heap when compiling the PySide6, Matplotlib, SciPy,
