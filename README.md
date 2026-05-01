@@ -155,6 +155,14 @@ dist/MieShield-<version>-windows-x64.zip
 An installer can be added later with Inno Setup, WiX, or NSIS while keeping the
 same Nuitka build output as input.
 
+The Windows build disables Nuitka link-time optimization by default because the
+MSVC linker can run out of heap when compiling the PySide6, Matplotlib, SciPy,
+and NumPy standalone bundle. If your build machine handles it, you can opt in:
+
+```powershell
+.\scripts\package-windows.ps1 -Lto yes
+```
+
 ## Core Quantities
 
 For monodisperse particles, the main quantities are:

@@ -6,15 +6,70 @@ conversion, forward-result aggregation, inverse-problem metrics, and safe MieQ
 wrappers.
 """
 
+import math
+import sys
+import types
 from typing import Callable, Iterable, Literal, TypeAlias
 
 import numpy as np
-import scipy.integrate
 
-if not hasattr(scipy.integrate, "trapz"):
-    scipy.integrate.trapz = scipy.integrate.trapezoid
 
-from PyMieScatt import MieQ
+def trapz(y, x):
+    return np.trapezoid(y, x)
+
+
+def _install_pymiescatt_integrate_compat():
+    """PyMieScatt still imports scipy.integrate.trapz, removed in new SciPy."""
+
+    integrate_module = sys.modules.get("scipy.integrate")
+    if integrate_module is not None:
+        if not hasattr(integrate_module, "trapz"):
+            integrate_module.trapz = trapz
+        return None
+
+    integrate_module = types.ModuleType("scipy.integrate")
+    integrate_module.trapz = trapz
+    integrate_module.trapezoid = np.trapezoid
+    sys.modules["scipy.integrate"] = integrate_module
+
+    scipy_module = sys.modules.get("scipy")
+    had_parent_attr = scipy_module is not None and hasattr(scipy_module, "integrate")
+    old_parent_attr = getattr(scipy_module, "integrate", None) if had_parent_attr else None
+    if scipy_module is not None:
+        scipy_module.integrate = integrate_module
+
+    return integrate_module, scipy_module, had_parent_attr, old_parent_attr
+
+
+def _remove_pymiescatt_integrate_compat(shim_state) -> None:
+    if shim_state is None:
+        return
+
+    integrate_module, scipy_module, had_parent_attr, old_parent_attr = shim_state
+    if sys.modules.get("scipy.integrate") is integrate_module:
+        del sys.modules["scipy.integrate"]
+
+    if scipy_module is not None and getattr(scipy_module, "integrate", None) is integrate_module:
+        if had_parent_attr:
+            scipy_module.integrate = old_parent_attr
+        else:
+            delattr(scipy_module, "integrate")
+
+
+_pymiescatt_shim_state = _install_pymiescatt_integrate_compat()
+try:
+    from PyMieScatt import MieQ
+finally:
+    _remove_pymiescatt_integrate_compat(_pymiescatt_shim_state)
+    del _pymiescatt_shim_state
+
+
+def lognormal_cdf(d_um: float, dg_um: float, sigma_g: float) -> float:
+    if d_um <= 0 or dg_um <= 0 or sigma_g <= 1:
+        return 0.0
+    shape = math.log(sigma_g)
+    z = (math.log(d_um) - math.log(dg_um)) / (shape * math.sqrt(2.0))
+    return 0.5 * (1.0 + math.erf(z))
 
 MATERIALS_DB = [
     ("C", "Углерод (Soot)", 1800.0),
@@ -300,7 +355,7 @@ def distributed_particle_mass_kg(
 ) -> float:
     diameters_m = diameters_um * 1e-6
     volumes_m3 = (np.pi / 6.0) * (diameters_m**3)
-    avg_volume_m3 = float(scipy.integrate.trapz(volumes_m3 * pdf_normalized, diameters_um))
+    avg_volume_m3 = float(trapz(volumes_m3 * pdf_normalized, diameters_um))
     return mixture_density(fractions, rho_by_code) * avg_volume_m3
 
 

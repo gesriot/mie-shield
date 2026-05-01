@@ -1,9 +1,19 @@
 import sys
 import traceback
+import types
 
 import numpy as np
-import scipy.integrate
-import scipy.stats
+
+
+def _install_scipy_stats_placeholder() -> None:
+    # Optional SciPy optimize/interpolate branches import scipy.stats; this app
+    # does not use those branches, and excluding stats keeps Nuitka builds sane.
+    if "scipy.stats" not in sys.modules:
+        sys.modules["scipy.stats"] = types.ModuleType("scipy.stats")
+
+
+_install_scipy_stats_placeholder()
+
 import scipy.optimize
 
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
@@ -79,6 +89,7 @@ from mie_core import (
     inverse_metric_from_mec_values,
     # Distributions
     lognormal_pdf,
+    lognormal_cdf,
     custom_pdf,
     # Mie call wrappers
     safe_mie_qext,
@@ -87,6 +98,7 @@ from mie_core import (
     compute_mec_for_d,
     # Numerical helpers
     nan_safe_bisect,
+    trapz,
 )
 
 DEFAULTS = {
@@ -236,7 +248,7 @@ class CalculationWorker(QThread):
                     c_sigma = p["custom_sigma"]
 
                     pdf_values = custom_pdf(diameters_um, c_A, c_mu, c_sigma)
-                    mass_numerical = scipy.integrate.trapz(pdf_values, diameters_um)
+                    mass_numerical = trapz(pdf_values, diameters_um)
                     if not np.isfinite(mass_numerical) or mass_numerical <= 1e-12:
                         raise ValueError("Интеграл PDF некорректен (<=0 или NaN).")
 
@@ -258,13 +270,13 @@ class CalculationWorker(QThread):
                     sigma_g = p["d_dist"][1]
 
                     pdf_values = lognormal_pdf(diameters_um, dg_um, sigma_g)
-                    mass_numerical = scipy.integrate.trapz(pdf_values, diameters_um)
+                    mass_numerical = trapz(pdf_values, diameters_um)
                     if not np.isfinite(mass_numerical) or mass_numerical <= 1e-12:
                         raise ValueError("Интеграл PDF некорректен (<=0 или NaN).")
 
                     shape_param = np.log(sigma_g)
-                    cdf_max = scipy.stats.lognorm.cdf(d_max_um, shape_param, scale=dg_um)
-                    cdf_min = scipy.stats.lognorm.cdf(d_min_um, shape_param, scale=dg_um)
+                    cdf_max = lognormal_cdf(d_max_um, dg_um, sigma_g)
+                    cdf_min = lognormal_cdf(d_min_um, dg_um, sigma_g)
                     coverage_theoretical = cdf_max - cdf_min
 
                     d_mode_um = dg_um * np.exp(-shape_param**2)
@@ -321,14 +333,14 @@ class CalculationWorker(QThread):
                             c_ext_vals_um2[j] = qext_to_cext_um2(q_ext, d_nm)
 
                         integrand = c_ext_vals_um2 * pdf_normalized
-                        avg_c_ext_mat = float(scipy.integrate.trapz(integrand, diameters_um))
+                        avg_c_ext_mat = float(trapz(integrand, diameters_um))
 
                         c_ext_parts[mat_code] = avg_c_ext_mat
                         c_ext_total_mix += float(num_fraction) * avg_c_ext_mat
 
                         if np.any(mat_failed_mask):
                             pdf_failed = np.where(mat_failed_mask, pdf_normalized, 0.0)
-                            w_lost_mat = float(scipy.integrate.trapz(pdf_failed, diameters_um))
+                            w_lost_mat = float(trapz(pdf_failed, diameters_um))
                             mixture_lost_weight += float(num_fraction) * w_lost_mat
 
                     if mixture_lost_weight > 0.02:
@@ -814,7 +826,7 @@ class OptimizationWorker(QThread):
                         continue
                     d_g = np.geomspace(dm, dx, N_D_points)
                     pv = custom_pdf(d_g, 1.0, mu_for_map, sigma_for_map)
-                    ps = scipy.integrate.trapz(pv, d_g)
+                    ps = trapz(pv, d_g)
                     if ps <= 1e-30:
                         continue
                     pn = pv / ps
@@ -822,7 +834,7 @@ class OptimizationWorker(QThread):
                     mec_wl = np.zeros(n_wl)
                     for k in range(n_wl):
                         pts = np.column_stack([log_d_g, np.full(N_D_points, wavelengths[k])])
-                        mec_wl[k] = scipy.integrate.trapz(interp(pts) * pn, d_g)
+                        mec_wl[k] = trapz(interp(pts) * pn, d_g)
                     score_wl = mec_wl * path_length_m
                     if criterion == OPT_MEAN:
                         window_mec[i, j] = np.mean(score_wl)
@@ -863,7 +875,7 @@ class OptimizationWorker(QThread):
 
                 d_grid = np.geomspace(d_min_opt, d_max_opt, N_D_points)
                 pdf_vals = custom_pdf(d_grid, 1.0, mu_val, sigma_val)
-                pdf_sum = scipy.integrate.trapz(pdf_vals, d_grid)
+                pdf_sum = trapz(pdf_vals, d_grid)
                 if pdf_sum <= 1e-30:
                     return 1e10
                 pdf_norm = pdf_vals / pdf_sum
@@ -873,7 +885,7 @@ class OptimizationWorker(QThread):
                 for j in range(n_wl):
                     pts = np.column_stack([log_d_grid, np.full(N_D_points, wavelengths[j])])
                     mec_mono = interp(pts)
-                    mec_per_wl[j] = scipy.integrate.trapz(mec_mono * pdf_norm, d_grid)
+                    mec_per_wl[j] = trapz(mec_mono * pdf_norm, d_grid)
 
                 eval_count[0] += 1
                 if eval_count[0] % 50 == 0:
@@ -904,6 +916,7 @@ class OptimizationWorker(QThread):
             result = scipy.optimize.differential_evolution(
                 objective, bounds,
                 maxiter=200, tol=1e-6, seed=42,
+                init="random",
                 polish=True, disp=False,
             )
 
@@ -921,7 +934,7 @@ class OptimizationWorker(QThread):
             # Compute final MEC spectrum at optimum
             d_grid_best = np.geomspace(d_min_best, d_max_best, N_D_points)
             pdf_best = custom_pdf(d_grid_best, 1.0, mu_best, sigma_best)
-            pdf_sum_best = scipy.integrate.trapz(pdf_best, d_grid_best)
+            pdf_sum_best = trapz(pdf_best, d_grid_best)
             pdf_norm_best = pdf_best / pdf_sum_best if pdf_sum_best > 1e-30 else pdf_best
 
             mec_spectrum = np.zeros(n_wl)
@@ -929,7 +942,7 @@ class OptimizationWorker(QThread):
             for j in range(n_wl):
                 pts = np.column_stack([log_d_best, np.full(N_D_points, wavelengths[j])])
                 mec_mono = interp(pts)
-                mec_spectrum[j] = scipy.integrate.trapz(mec_mono * pdf_norm_best, d_grid_best)
+                mec_spectrum[j] = trapz(mec_mono * pdf_norm_best, d_grid_best)
 
             mec_mean = float(np.mean(mec_spectrum))
             mec_min = float(np.min(mec_spectrum))
