@@ -10,7 +10,13 @@ The application is intended for engineering and experimental analysis of aerodis
 
 ## Download
 
-Pre-built binaries for macOS (arm64) and Windows (x64) are attached to each [GitHub Release](../../releases). Linux is not packaged – run from source instead (see [Running](#running)).
+Pre-built binaries for macOS (arm64), Windows (x64), and Linux (x64) are attached to each [GitHub Release](../../releases).
+
+- macOS: `MieShield-<version>-macos-arm64.dmg`
+- Windows: `MieShield.exe`
+- Linux: `MieShield-<version>-linux-x64.tar.gz`
+
+You can also run the application from source with `uv` (see [Running](#running)).
 
 ## Features
 
@@ -72,7 +78,7 @@ Requirements: macOS on the target architecture, `uv`, Python 3.14, Xcode Command
 
 Output: `dist/MieShield-<version>-macos-arm64.dmg`. If `icon.png` is present, it is embedded as the app icon. The script honors `PYTHON_VERSION`, `ARCH`, and `PRODUCT_NAME` env vars.
 
-### Windows ZIP
+### Windows EXE and ZIP
 
 Requirements: Windows, `uv`, Python 3.14, Microsoft C++ Build Tools.
 
@@ -80,7 +86,7 @@ Requirements: Windows, `uv`, Python 3.14, Microsoft C++ Build Tools.
 .\scripts\package-windows.ps1
 ```
 
-Output: `dist/MieShield-<version>-windows-x64.zip`.
+Default output: `dist/MieShield-<version>-windows-x64.zip`.
 
 To build a single executable instead of a standalone folder archive:
 
@@ -88,7 +94,7 @@ To build a single executable instead of a standalone folder archive:
 .\scripts\package-windows.ps1 -Mode onefile
 ```
 
-Output: `dist/windows/MieShield.exe`.
+Onefile output: `dist/windows/MieShield.exe`. This is the Windows artifact published by the release workflow.
 
 ### Linux tarball
 
