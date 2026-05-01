@@ -139,7 +139,7 @@ where:
 - `Cext` is extinction cross section.
 - `N` is number concentration.
 - `rho_mass` is mass concentration in `g/m^3`.
-- `L` is the measurement path length in meters.
+- `L` is the measurement path length.
 - `tau` is optical depth.
 - `T` is transmittance.
 - `MEC` is mass extinction coefficient in `m^2/g`.
