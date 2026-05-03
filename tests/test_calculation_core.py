@@ -191,7 +191,7 @@ def test_safe_mie_qext_handles_invalid_and_small_negative_values(monkeypatch, q_
 
 
 def test_conc_mode_constants_are_machine_strings():
-    # ConcMode values are decoupled from UI labels (Russian "Массовая"/"Числовая"
+    # ConcMode values are decoupled from UI labels ("Mass"/"Number"
     # live only in the QComboBox addItem() text; userData holds these constants).
     assert ms.CONC_MASS == "mass"
     assert ms.CONC_NUMBER == "number"
@@ -202,9 +202,9 @@ def test_resolve_concentration_rejects_unknown_mode():
     # (e.g. an old UI label leaking into a worker dict). Without this check
     # an unknown mode was silently treated as mass concentration.
     with pytest.raises(ms.MieCoreError) as exc:
-        ms.resolve_concentration("Числовая", 5e8, 1e-15)
+        ms.resolve_concentration("Number", 5e8, 1e-15)
     assert exc.value.code == "err.conc_invalid_mode"
-    assert exc.value.params == {"conc_mode": "Числовая"}
+    assert exc.value.params == {"conc_mode": "Number"}
 
 
 def test_resolve_concentration_round_trip_mass_and_number():
@@ -339,7 +339,7 @@ def test_calculation_worker_monodisperse_number_concentration(monkeypatch):
     ("dist_type", "expected_log"),
     [
         ("lognormal", "Truncated Log-Normal"),
-        ("custom", "Кастомное распределение"),
+        ("custom", "Custom distribution"),
     ],
 )
 def test_calculation_worker_polydisperse_distribution_branches(monkeypatch, dist_type, expected_log):
@@ -422,12 +422,12 @@ def test_inverse_worker_solves_input_modes(monkeypatch, input_mode, target_value
         assert solution["transmittance_check"] == pytest.approx(math.exp(-6.48), rel=2e-4)
 
     if input_mode in ("transmittance", "effective_transmittance"):
-        assert any("AVG MEC (справка)" in line for line in out.logs)
+        assert any("AVG MEC (reference)" in line for line in out.logs)
 
     if input_mode == "transmittance" and wl_mode == "range":
-        assert any("exp(-AVG τ) (справка)" in line for line in out.logs)
+        assert any("exp(-AVG τ) (reference)" in line for line in out.logs)
     if input_mode == "effective_transmittance" and wl_mode == "range":
-        assert any("exp(-AVG τ) (проверка)" in line for line in out.logs)
+        assert any("exp(-AVG τ) (check)" in line for line in out.logs)
 
 
 def test_inverse_worker_reports_no_solution(monkeypatch):
@@ -437,7 +437,7 @@ def test_inverse_worker_reports_no_solution(monkeypatch):
 
     assert out.finished[0] is True
     assert out.results[-1]["solutions"] == []
-    assert any("РЕШЕНИЙ НЕ НАЙДЕНО" in line for line in out.logs)
+    assert any("NO SOLUTIONS FOUND" in line for line in out.logs)
 
 
 def test_inverse_worker_rejects_invalid_transmittance(monkeypatch):

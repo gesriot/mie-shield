@@ -183,23 +183,23 @@ class CalculationWorker(QThread):
 
             actual_step = (wl_max - wl_min) / (wavelengths.size - 1) if wavelengths.size > 1 else wl_step
             self.log_signal.emit(
-                f"Спектр: {wavelengths.size} точек, λ=[{wl_min:.4f}–{wl_max:.4f}] мкм, шаг={actual_step:.4f} мкм"
+                f"Spectrum: {wavelengths.size} points, lambda=[{wl_min:.4f}-{wl_max:.4f}] um, step={actual_step:.4f} um"
             )
             log_every = max(1, wavelengths.size // 50)
             if log_every > 1:
-                self.log_signal.emit(f"ℹ️ Таблица: каждая {log_every}-я точка из {wavelengths.size}")
+                self.log_signal.emit(f"Info: table shows every {log_every}th point out of {wavelengths.size}")
 
             conc_mode = p.get("conc_mode", CONC_MASS)
             conc_value = float(p.get("conc_value", 0.01))
             path_length_m = float(p.get("path_length_m", 1.0))
             if not np.isfinite(path_length_m) or path_length_m <= 0:
                 raise MieCoreError("err.path_length_positive")
-            self.log_signal.emit(f"Длина трассы: L={path_length_m:.4f} м")
+            self.log_signal.emit(f"Path length: L={path_length_m:.4f} m")
 
             if is_monodisperse:
                 D_um = float(p["D_um"])
 
-                self.log_signal.emit(f"Монодисперсные частицы: D={D_um:.4f} мкм")
+                self.log_signal.emit(f"Monodisperse particles: D={D_um:.4f} um")
 
                 avg_mass_mixture = monodisperse_particle_mass_kg(D_um, fractions, rho_by_code)
                 num_conc, mass_conc_g = resolve_concentration(conc_mode, conc_value, avg_mass_mixture)
@@ -292,16 +292,16 @@ class CalculationWorker(QThread):
                     d_geom_mean = np.exp(c_mu)
                     d_mode_um = np.exp(c_mu - c_sigma**2)
 
-                    self.log_signal.emit(f"Кастомное распределение: A={c_A:.6f}, μ={c_mu:.6f}, σ={c_sigma:.6f}")
-                    self.log_signal.emit(f"D_geom_mean=exp(μ)={d_geom_mean:.4f} мкм, Mode={d_mode_um:.4f} мкм")
-                    self.log_signal.emit(f"Диапазон: [{d_min_um:.4f}, {d_max_um:.4f}] мкм, N={N_D}")
-                    self.log_signal.emit(f"Интеграл (Numerical): {mass_numerical:.6g}")
+                    self.log_signal.emit(f"Custom distribution: A={c_A:.6f}, mu={c_mu:.6f}, sigma={c_sigma:.6f}")
+                    self.log_signal.emit(f"D_geom_mean=exp(mu)={d_geom_mean:.4f} um, Mode={d_mode_um:.4f} um")
+                    self.log_signal.emit(f"Range: [{d_min_um:.4f}, {d_max_um:.4f}] um, N={N_D}")
+                    self.log_signal.emit(f"Integral (Numerical): {mass_numerical:.6g}")
 
                     if d_mode_um < d_min_um or d_mode_um > d_max_um:
-                        self.log_signal.emit(f"⚠️ ПРЕДУПРЕЖДЕНИЕ: Пик (Mode={d_mode_um:.4f} мкм) вне окна интегрирования!")
+                        self.log_signal.emit(f"WARNING: peak (Mode={d_mode_um:.4f} um) is outside the integration window.")
 
                     pdf_normalized = pdf_values / mass_numerical
-                    self.log_signal.emit("ℹ️ Модель: Кастомное распределение (перенормировка на 1.0 внутри диапазона).")
+                    self.log_signal.emit("Info: model is Custom distribution (renormalized to 1.0 inside range).")
                 else:
                     dg_um = p["d_dist"][0]
                     sigma_g = p["d_dist"][1]
@@ -318,24 +318,24 @@ class CalculationWorker(QThread):
 
                     d_mode_um = dg_um * np.exp(-shape_param**2)
 
-                    self.log_signal.emit(f"Распределение: Dg={dg_um:.4f} мкм, Mode={d_mode_um:.4f} мкм")
-                    self.log_signal.emit(f"Диапазон: [{d_min_um:.4f}, {d_max_um:.4f}] мкм, N={N_D}")
-                    self.log_signal.emit(f"Покрытие (CDF): {coverage_theoretical*100:.2f}%")
-                    self.log_signal.emit(f"Интеграл (Numerical): {mass_numerical:.6g}")
+                    self.log_signal.emit(f"Distribution: Dg={dg_um:.4f} um, Mode={d_mode_um:.4f} um")
+                    self.log_signal.emit(f"Range: [{d_min_um:.4f}, {d_max_um:.4f}] um, N={N_D}")
+                    self.log_signal.emit(f"Coverage (CDF): {coverage_theoretical*100:.2f}%")
+                    self.log_signal.emit(f"Integral (Numerical): {mass_numerical:.6g}")
 
                     if d_mode_um < d_min_um or d_mode_um > d_max_um:
-                        self.log_signal.emit(f"⚠️ ПРЕДУПРЕЖДЕНИЕ: Пик (Mode={d_mode_um:.4f} мкм) вне окна интегрирования!")
+                        self.log_signal.emit(f"WARNING: peak (Mode={d_mode_um:.4f} um) is outside the integration window.")
 
                     if np.isfinite(coverage_theoretical) and coverage_theoretical < 0.95:
-                        self.log_signal.emit("⚠️ ПРЕДУПРЕЖДЕНИЕ: Диапазон отсекает >5% распределения.")
+                        self.log_signal.emit("WARNING: range cuts off >5% of the distribution.")
 
                     if np.isfinite(coverage_theoretical) and coverage_theoretical > 0:
                         rel = abs(mass_numerical - coverage_theoretical) / coverage_theoretical
                         if rel > 0.02:
-                            self.log_signal.emit("⚠️ ПРЕДУПРЕЖДЕНИЕ: Численный интеграл отличается от CDF >2%.")
+                            self.log_signal.emit("WARNING: numerical integral differs from CDF by >2%.")
 
                     pdf_normalized = pdf_values / mass_numerical
-                    self.log_signal.emit("ℹ️ Модель: Truncated Log-Normal (перенормировка на 1.0 внутри диапазона).")
+                    self.log_signal.emit("Info: model is Truncated Log-Normal (renormalized to 1.0 inside range).")
 
                 avg_mass_mixture = distributed_particle_mass_kg(diameters_um, pdf_normalized, fractions, rho_by_code)
                 num_conc, mass_conc_g = resolve_concentration(conc_mode, conc_value, avg_mass_mixture)
@@ -474,37 +474,37 @@ class InverseWorker(QThread):
             D_max_um = float(p["D_max_um"])
             N_scan = int(p["N_scan"])
 
-            self.log_signal.emit(f"=== ОБРАТНАЯ ЗАДАЧА (МОНОДИСПЕРС) ===")
+            self.log_signal.emit("=== INVERSE PROBLEM (MONODISPERSE) ===")
             if use_avg_spectrum:
                 self.log_signal.emit(
-                    f"Спектр: {wavelengths.size} точек, λ=[{wavelengths[0]:.4f}–{wavelengths[-1]:.4f}] мкм, шаг={actual_wl_step:.4f} мкм"
+                    f"Spectrum: {wavelengths.size} points, lambda=[{wavelengths[0]:.4f}-{wavelengths[-1]:.4f}] um, step={actual_wl_step:.4f} um"
                 )
             else:
-                self.log_signal.emit(f"λ = {wavelengths[0]:.4f} мкм")
-            self.log_signal.emit(f"L = {path_length_m:.4f} м")
+                self.log_signal.emit(f"lambda = {wavelengths[0]:.4f} um")
+            self.log_signal.emit(f"L = {path_length_m:.4f} m")
             if input_mode == INV_ALPHA:
                 alpha_name = "AVG α" if use_avg_spectrum else "α"
                 tau_name = "AVG τ" if use_avg_spectrum else "τ"
-                self.log_signal.emit(f"{alpha_name} (цель) = {target_value:.6e} 1/м")
-                self.log_signal.emit(f"ρ_mass = {mass_conc_g:.6e} г/м³")
-                self.log_signal.emit(f"{tau_name} (для этой трассы) = {target_value * path_length_m:.6e}")
+                self.log_signal.emit(f"{alpha_name} (target) = {target_value:.6e} 1/m")
+                self.log_signal.emit(f"rho_mass = {mass_conc_g:.6e} g/m^3")
+                self.log_signal.emit(f"{tau_name} (for this path) = {target_value * path_length_m:.6e}")
             elif input_mode == INV_TAU:
                 tau_name = "AVG τ=αL" if use_avg_spectrum else "τ=αL"
-                self.log_signal.emit(f"{tau_name} (цель) = {target_value:.6e}")
-                self.log_signal.emit(f"ρ_mass = {mass_conc_g:.6e} г/м³")
+                self.log_signal.emit(f"{tau_name} (target) = {target_value:.6e}")
+                self.log_signal.emit(f"rho_mass = {mass_conc_g:.6e} g/m^3")
             elif input_mode == INV_TRANSMITTANCE:
-                self.log_signal.emit(f"{metric_label} (цель) = {target_value:.6e}")
-                self.log_signal.emit(f"ρ_mass = {mass_conc_g:.6e} г/м³")
-                self.log_signal.emit(f"Справочно: -ln(T)/(ρ_mass·L) = {equivalent_mec:.6e} м²/г")
+                self.log_signal.emit(f"{metric_label} (target) = {target_value:.6e}")
+                self.log_signal.emit(f"rho_mass = {mass_conc_g:.6e} g/m^3")
+                self.log_signal.emit(f"Reference: -ln(T)/(rho_mass*L) = {equivalent_mec:.6e} m^2/g")
             elif input_mode == INV_EFFECTIVE_TRANSMITTANCE:
-                self.log_signal.emit(f"{metric_label}=exp(-AVG τ) (цель) = {target_value:.6e}")
-                self.log_signal.emit(f"ρ_mass = {mass_conc_g:.6e} г/м³")
-                self.log_signal.emit(f"Эквивалентная AVG MEC = {equivalent_mec:.6e} м²/г")
+                self.log_signal.emit(f"{metric_label}=exp(-AVG tau) (target) = {target_value:.6e}")
+                self.log_signal.emit(f"rho_mass = {mass_conc_g:.6e} g/m^3")
+                self.log_signal.emit(f"Equivalent AVG MEC = {equivalent_mec:.6e} m^2/g")
             units_suffix = f" {metric_units}" if metric_units else ""
-            self.log_signal.emit(f"{metric_label} (цель) = {target_mec:.6e}{units_suffix}")
-            self.log_signal.emit(f"Диапазон поиска D: [{D_min_um:.4f}, {D_max_um:.4f}] мкм")
-            self.log_signal.emit(f"Точек сканирования: {N_scan}")
-            self.log_signal.emit(f"ρ_avg (смесь) = {rho_avg:.1f} кг/м³")
+            self.log_signal.emit(f"{metric_label} (target) = {target_mec:.6e}{units_suffix}")
+            self.log_signal.emit(f"D search range: [{D_min_um:.4f}, {D_max_um:.4f}] um")
+            self.log_signal.emit(f"Scan points: {N_scan}")
+            self.log_signal.emit(f"rho_avg (mixture) = {rho_avg:.1f} kg/m^3")
             self.log_signal.emit("-" * 60)
 
             diameters_um = np.geomspace(D_min_um, D_max_um, N_scan)
@@ -522,7 +522,7 @@ class InverseWorker(QThread):
                     return np.nan
                 return inverse_metric_from_mec_values(vals, input_mode, mass_conc_g, path_length_m)
 
-            self.log_signal.emit(f"Сканирование {metric_label}(D)...")
+            self.log_signal.emit(f"Scanning {metric_label}(D)...")
 
             for i, D_um in enumerate(diameters_um):
                 if self.is_aborted:
@@ -555,11 +555,11 @@ class InverseWorker(QThread):
                 if in_nan:
                     nan_ranges.append((diameters_um[start_idx], diameters_um[-1]))
 
-                self.log_signal.emit(f"⚠️ {nan_count} точек с NaN (сбои MieQ) исключены из поиска.")
+                self.log_signal.emit(f"WARNING: {nan_count} NaN points (MieQ failures) excluded from search.")
                 for d_start, d_end in nan_ranges[:3]:
-                    self.log_signal.emit(f"   NaN диапазон: [{d_start:.4f}, {d_end:.4f}] мкм")
+                    self.log_signal.emit(f"   NaN range: [{d_start:.4f}, {d_end:.4f}] um")
                 if len(nan_ranges) > 3:
-                    self.log_signal.emit(f"   ... и ещё {len(nan_ranges)-3} диапазонов")
+                    self.log_signal.emit(f"   ... and {len(nan_ranges)-3} more ranges")
 
             sign_changes = []
             eps = max(abs(target_mec) * 1e-4, 1e-12)
@@ -603,7 +603,7 @@ class InverseWorker(QThread):
                         if abs(g_i) < eps_near and abs(g_i) < abs(g_prev) and abs(g_i) < abs(g_next):
                             sign_changes.append((i, "near"))
 
-            self.log_signal.emit(f"Найдено кандидатов на решение: {len(sign_changes)}")
+            self.log_signal.emit(f"Solution candidates found: {len(sign_changes)}")
 
             solutions = []
 
@@ -628,7 +628,7 @@ class InverseWorker(QThread):
                         D_solution = nan_safe_bisect(objective, D_left, D_right, xtol=1e-6)
 
                         if np.isnan(D_solution):
-                            self.log_signal.emit(f"⚠️ Интервал [{D_left:.4f}, {D_right:.4f}] мкм: bisect не сошёлся (NaN внутри).")
+                            self.log_signal.emit(f"WARNING: interval [{D_left:.4f}, {D_right:.4f}] um: bisect did not converge (NaN inside).")
                             continue
 
                     dedup_threshold = max(1e-4, 1e-3 * D_solution)
@@ -648,12 +648,12 @@ class InverseWorker(QThread):
                     mec_check = compute_inverse_metric(D_solution)
 
                     if np.isnan(mec_check):
-                        self.log_signal.emit(f"⚠️ Решение D={D_solution:.4f} мкм отброшено (MieQ сбой).")
+                        self.log_signal.emit(f"WARNING: solution D={D_solution:.4f} um rejected (MieQ failure).")
                         continue
 
                     rel_error = abs(mec_check - target_mec) / target_mec if target_mec > 0 else abs(mec_check - target_mec)
                     if rel_error > 0.01:
-                        self.log_signal.emit(f"⚠️ Решение D={D_solution:.4f} мкм отброшено (ошибка {rel_error*100:.2f}%).")
+                        self.log_signal.emit(f"WARNING: solution D={D_solution:.4f} um rejected (error {rel_error*100:.2f}%).")
                         continue
 
                     mec_spectrum_check = compute_mec_spectrum(D_solution)
@@ -683,52 +683,52 @@ class InverseWorker(QThread):
                     })
 
                 except Exception as e:
-                    self.log_signal.emit(f"⚠️ Ошибка на интервале #{i}: {e}")
+                    self.log_signal.emit(f"WARNING: error on interval #{i}: {e}")
 
                 self.progress_signal.emit(50 + int(50 * (idx + 1) / max(len(sign_changes), 1)))
 
             self.log_signal.emit("-" * 60)
 
             if not solutions:
-                self.log_signal.emit("❌ РЕШЕНИЙ НЕ НАЙДЕНО в заданном диапазоне D.")
-                self.log_signal.emit("   Попробуйте расширить диапазон или проверить входные данные.")
+                self.log_signal.emit("NO SOLUTIONS FOUND in the specified D range.")
+                self.log_signal.emit("   Try expanding the range or checking the input data.")
             else:
-                self.log_signal.emit(f"✅ НАЙДЕНО РЕШЕНИЙ: {len(solutions)}")
+                self.log_signal.emit(f"SOLUTIONS FOUND: {len(solutions)}")
                 self.log_signal.emit("")
 
                 for i, sol in enumerate(solutions):
-                    self.log_signal.emit(f"--- Решение #{i+1} ---")
-                    self.log_signal.emit(f"  D = {sol['D_um']:.6f} мкм")
+                    self.log_signal.emit(f"--- Solution #{i+1} ---")
+                    self.log_signal.emit(f"  D = {sol['D_um']:.6f} um")
                     if sol['N'] is not None:
-                        self.log_signal.emit(f"  N = {sol['N']:.6e} 1/м³")
+                        self.log_signal.emit(f"  N = {sol['N']:.6e} 1/m^3")
                         alpha_name, tau_name = inverse_solution_names(use_avg_spectrum)
                         transmittance_note = (
-                            "справка"
+                            "reference"
                             if inverse_transmittance_is_reference(input_mode, use_avg_spectrum)
-                            else "проверка"
+                            else "check"
                         )
-                        self.log_signal.emit(f"  {alpha_name} (проверка) = {sol['alpha_check']:.6e} 1/м")
-                        self.log_signal.emit(f"  {tau_name}=αL (проверка) = {sol['tau_check']:.6e}")
+                        self.log_signal.emit(f"  {alpha_name} (check) = {sol['alpha_check']:.6e} 1/m")
+                        self.log_signal.emit(f"  {tau_name}=alpha*L (check) = {sol['tau_check']:.6e}")
                         self.log_signal.emit(f"  exp(-{tau_name}) ({transmittance_note}) = {sol['transmittance_check']:.6e}")
                     if inverse_shows_avg_mec_reference(input_mode):
-                        self.log_signal.emit(f"  AVG MEC (справка) = {sol['avg_mec_check']:.6e} м²/г")
-                    self.log_signal.emit(f"  {metric_label} (проверка) = {sol['mec_check']:.6e}{units_suffix}")
-                    self.log_signal.emit(f"  Относительная ошибка = {sol['rel_error']*100:.4f}%")
-                    self.log_signal.emit(f"  m_particle = {sol['m_particle_kg']:.6e} кг")
+                        self.log_signal.emit(f"  AVG MEC (reference) = {sol['avg_mec_check']:.6e} m^2/g")
+                    self.log_signal.emit(f"  {metric_label} (check) = {sol['mec_check']:.6e}{units_suffix}")
+                    self.log_signal.emit(f"  Relative error = {sol['rel_error']*100:.4f}%")
+                    self.log_signal.emit(f"  m_particle = {sol['m_particle_kg']:.6e} kg")
                     self.log_signal.emit("")
 
             self.log_signal.emit("-" * 60)
-            self.log_signal.emit(f"Диапазон {metric_label}(D) на сетке:")
+            self.log_signal.emit(f"{metric_label}(D) range on grid:")
             valid_mask = ~np.isnan(mec_values)
             if np.any(valid_mask):
                 valid_mec = mec_values[valid_mask]
                 valid_D = diameters_um[valid_mask]
                 idx_min = np.argmin(valid_mec)
                 idx_max = np.argmax(valid_mec)
-                self.log_signal.emit(f"  {metric_label}_min = {valid_mec[idx_min]:.6e}{units_suffix} при D = {valid_D[idx_min]:.4f} мкм")
-                self.log_signal.emit(f"  {metric_label}_max = {valid_mec[idx_max]:.6e}{units_suffix} при D = {valid_D[idx_max]:.4f} мкм")
+                self.log_signal.emit(f"  {metric_label}_min = {valid_mec[idx_min]:.6e}{units_suffix} at D = {valid_D[idx_min]:.4f} um")
+                self.log_signal.emit(f"  {metric_label}_max = {valid_mec[idx_max]:.6e}{units_suffix} at D = {valid_D[idx_max]:.4f} um")
             else:
-                self.log_signal.emit("  ⚠️ Все точки недействительны (сбои MieQ).")
+                self.log_signal.emit("  WARNING: all points are invalid (MieQ failures).")
 
             self.result_signal.emit({
                 "solutions": solutions,
@@ -797,18 +797,18 @@ class OptimizationWorker(QThread):
 
             D_scan = np.geomspace(D_scan_min, D_scan_max, N_D_scan)
 
-            self.log_signal.emit("=== ОПТИМИЗАЦИЯ MEC ===")
-            self.log_signal.emit(f"Спектр: [{wl_min}, {wl_max}] мкм, шаг {wl_step}")
-            self.log_signal.emit(f"L = {path_length_m:.4f} м")
-            self.log_signal.emit(f"Область D: [{D_scan_min}, {D_scan_max}] мкм, {N_D_scan} точек карты")
-            self.log_signal.emit(f"Точек интегрирования PDF: {N_D_points}")
-            self.log_signal.emit(f"Критерий: {criterion}")
-            self.log_signal.emit(f"Режим: {mode}")
-            self.log_signal.emit(f"ρ_avg = {rho_avg:.1f} кг/м³")
+            self.log_signal.emit("=== MEC OPTIMIZATION ===")
+            self.log_signal.emit(f"Spectrum: [{wl_min}, {wl_max}] um, step {wl_step}")
+            self.log_signal.emit(f"L = {path_length_m:.4f} m")
+            self.log_signal.emit(f"D area: [{D_scan_min}, {D_scan_max}] um, {N_D_scan} map points")
+            self.log_signal.emit(f"PDF integration points: {N_D_points}")
+            self.log_signal.emit(f"Criterion: {criterion}")
+            self.log_signal.emit(f"Mode: {mode}")
+            self.log_signal.emit(f"rho_avg = {rho_avg:.1f} kg/m^3")
             self.log_signal.emit("-" * 60)
 
             # Phase 1: Build MEC map
-            self.log_signal.emit("Фаза 1: Построение карты MEC(D, λ)...")
+            self.log_signal.emit("Phase 1: building MEC(D, lambda) map...")
             mec_map = np.zeros((N_D_scan, n_wl))
             total_phase1 = N_D_scan * n_wl
             done = 0
@@ -835,7 +835,7 @@ class OptimizationWorker(QThread):
                 "metric_units": "m^3/g",
             })
 
-            self.log_signal.emit(f"Карта MEC построена: {N_D_scan} x {n_wl}")
+            self.log_signal.emit(f"MEC map built: {N_D_scan} x {n_wl}")
 
             # Build interpolator from log-space D
             from scipy.interpolate import RegularGridInterpolator
@@ -848,7 +848,7 @@ class OptimizationWorker(QThread):
             )
 
             # Phase 1.5: Build MEC(D_MIN, D_MAX) landscape
-            self.log_signal.emit("Фаза 1.5: Построение карты MEC·L(D_min, D_max)...")
+            self.log_signal.emit("Phase 1.5: building MEC*L(D_min, D_max) map...")
             mu_for_map = mu_fixed if mode == OPT_WINDOW_ONLY else (
                 (mu_range[0] + mu_range[1]) / 2.0 if mu_range else 0.0)
             sigma_for_map = sigma_fixed if mode == OPT_WINDOW_ONLY else (
@@ -897,10 +897,10 @@ class OptimizationWorker(QThread):
                 "metric_label": "MEC·L",
                 "metric_units": "m^3/g",
             })
-            self.log_signal.emit(f"Карта MEC·L(D_min, D_max) построена: {N_window_grid} x {N_window_grid}")
+            self.log_signal.emit(f"MEC*L(D_min, D_max) map built: {N_window_grid} x {N_window_grid}")
 
             # Phase 2: Optimization
-            self.log_signal.emit("Фаза 2: Оптимизация окна...")
+            self.log_signal.emit("Phase 2: optimizing window...")
 
             eval_count = [0]
 
@@ -995,16 +995,16 @@ class OptimizationWorker(QThread):
             mec_l_min = float(np.min(mec_l_spectrum))
 
             self.log_signal.emit("=" * 60)
-            self.log_signal.emit("РЕЗУЛЬТАТ ОПТИМИЗАЦИИ:")
-            self.log_signal.emit(f"  D_min* = {d_min_best:.6f} мкм")
-            self.log_signal.emit(f"  D_max* = {d_max_best:.6f} мкм")
+            self.log_signal.emit("OPTIMIZATION RESULT:")
+            self.log_signal.emit(f"  D_min* = {d_min_best:.6f} um")
+            self.log_signal.emit(f"  D_max* = {d_max_best:.6f} um")
             self.log_signal.emit(f"  μ*     = {mu_best:.6f}")
             self.log_signal.emit(f"  σ*     = {sigma_best:.6f}")
-            self.log_signal.emit(f"  MEC_mean = {mec_mean:.6e} м²/г")
-            self.log_signal.emit(f"  MEC_min  = {mec_min:.6e} м²/г")
-            self.log_signal.emit(f"  (MEC·L)_mean = {mec_l_mean:.6e} м³/г")
-            self.log_signal.emit(f"  (MEC·L)_min  = {mec_l_min:.6e} м³/г")
-            self.log_signal.emit(f"  Оценок целевой функции: {eval_count[0]}")
+            self.log_signal.emit(f"  MEC_mean = {mec_mean:.6e} m^2/g")
+            self.log_signal.emit(f"  MEC_min  = {mec_min:.6e} m^2/g")
+            self.log_signal.emit(f"  (MEC*L)_mean = {mec_l_mean:.6e} m^3/g")
+            self.log_signal.emit(f"  (MEC*L)_min  = {mec_l_min:.6e} m^3/g")
+            self.log_signal.emit(f"  Objective evaluations: {eval_count[0]}")
             self.log_signal.emit("=" * 60)
 
             self.result_signal.emit({
@@ -1190,8 +1190,6 @@ class MainWindow(QMainWindow):
 
     def _unit_label(self, unit: str) -> str:
         return {
-            "м²/г": t("unit.m2_per_g").strip(),
-            "м³/г": t("unit.m3_per_g").strip(),
             "m^2/g": t("unit.m2_per_g").strip(),
             "m^3/g": t("unit.m3_per_g").strip(),
         }.get(unit, unit)
@@ -1776,7 +1774,7 @@ class MainWindow(QMainWindow):
             wavelengths = np.array(res["wavelengths"])
             metric_map = np.array(res.get("path_score_map", res["mec_map"]))
             metric_label = res.get("metric_label", "MEC")
-            metric_units = self._unit_label(res.get("metric_units", "м²/г"))
+            metric_units = self._unit_label(res.get("metric_units", "m^2/g"))
             ax1 = self.opt_figure.add_subplot(1, ncols, col)
             col += 1
             mec_plot = np.where(metric_map > 0, metric_map, np.nan)
@@ -1795,7 +1793,7 @@ class MainWindow(QMainWindow):
             dmax_grid = np.array(res_w["dmax_grid"])
             window_mec = np.array(res_w["window_mec"])
             metric_label = res_w.get("metric_label", "MEC")
-            metric_units = self._unit_label(res_w.get("metric_units", "м²/г"))
+            metric_units = self._unit_label(res_w.get("metric_units", "m^2/g"))
             crit_label = "mean" if res_w["criterion"] == OPT_MEAN else "min"
 
             ax2 = self.opt_figure.add_subplot(1, ncols, col)
@@ -1905,16 +1903,16 @@ class MainWindow(QMainWindow):
             with open(fn, "w", encoding="utf-8") as f:
                 f.write("MIE OPTIMIZATION REPORT\n")
                 f.write("=======================\n\n")
-                f.write(f"D_min* = {res['d_min']:.6f} мкм\n")
-                f.write(f"D_max* = {res['d_max']:.6f} мкм\n")
+                f.write(f"D_min* = {res['d_min']:.6f} um\n")
+                f.write(f"D_max* = {res['d_max']:.6f} um\n")
                 f.write(f"μ*     = {res['mu']:.6f}\n")
                 f.write(f"σ*     = {res['sigma']:.6f}\n")
-                f.write(f"L      = {res.get('path_length_m', 1.0):.6f} м\n")
-                f.write(f"MEC_mean = {res['mec_mean']:.6e} м²/г\n")
-                f.write(f"MEC_min  = {res['mec_min']:.6e} м²/г\n")
-                f.write(f"(MEC*L)_mean = {res.get('mec_l_mean', res['mec_mean']):.6e} м³/г\n")
-                f.write(f"(MEC*L)_min  = {res.get('mec_l_min', res['mec_min']):.6e} м³/г\n\n")
-                f.write(f"{'λ(мкм)':>10} | {'MEC(м²/г)':>15} | {'MEC*L(м³/г)':>15}\n")
+                f.write(f"L      = {res.get('path_length_m', 1.0):.6f} m\n")
+                f.write(f"MEC_mean = {res['mec_mean']:.6e} m^2/g\n")
+                f.write(f"MEC_min  = {res['mec_min']:.6e} m^2/g\n")
+                f.write(f"(MEC*L)_mean = {res.get('mec_l_mean', res['mec_mean']):.6e} m^3/g\n")
+                f.write(f"(MEC*L)_min  = {res.get('mec_l_min', res['mec_min']):.6e} m^3/g\n\n")
+                f.write(f"{'lambda(um)':>10} | {'MEC(m^2/g)':>15} | {'MEC*L(m^3/g)':>15}\n")
                 f.write("-" * 50 + "\n")
                 mec_l_spectrum = res.get("mec_l_spectrum", res["mec_spectrum"])
                 for wl, mec, mec_l in zip(res["wavelengths"], res["mec_spectrum"], mec_l_spectrum):
@@ -2373,7 +2371,7 @@ class MainWindow(QMainWindow):
             scan_MEC = res["scan_MEC"]
             target_mec = res["target_mec"]
             metric_label = res.get("metric_label", "MEC")
-            metric_units = self._unit_label(res.get("metric_units", "м²/г"))
+            metric_units = self._unit_label(res.get("metric_units", "m^2/g"))
             wavelengths = res.get("wavelengths", [])
             input_mode = p["input_mode"]
             use_avg_spectrum = p.get("wl_mode") == INV_WL_RANGE
@@ -2390,18 +2388,18 @@ class MainWindow(QMainWindow):
                 f.write("=========================================\n\n")
 
                 if use_avg_spectrum:
-                    f.write(f"Spectrum: [{p['wl_range'][0]}, {p['wl_range'][1]}] мкм, step={p['wl_range'][2]} мкм, N={len(wavelengths)}\n")
+                    f.write(f"Spectrum: [{p['wl_range'][0]}, {p['wl_range'][1]}] um, step={p['wl_range'][2]} um, N={len(wavelengths)}\n")
                 else:
-                    f.write(f"λ = {p['lambda_um']:.4f} мкм\n")
-                f.write(f"L = {p.get('path_length_m', 1.0):.6f} м\n")
+                    f.write(f"lambda = {p['lambda_um']:.4f} um\n")
+                f.write(f"L = {p.get('path_length_m', 1.0):.6f} m\n")
                 f.write(f"Input mode: {input_mode}\n")
                 f.write(f"Target value: {p['target_value']:.6e}\n")
                 if inverse_requires_mass_conc(input_mode):
-                    f.write(f"Mass concentration: {p['mass_conc_g']:.6e} г/м³\n")
+                    f.write(f"Mass concentration: {p['mass_conc_g']:.6e} g/m^3\n")
                 if inverse_uses_transmittance(input_mode) and res.get('equivalent_mec') is not None:
-                    f.write(f"Equivalent -ln(T)/(rho_mass*L): {res['equivalent_mec']:.6e} м²/г\n")
+                    f.write(f"Equivalent -ln(T)/(rho_mass*L): {res['equivalent_mec']:.6e} m^2/g\n")
                 f.write(f"Target {metric_label}: {target_mec:.6e}{units_suffix}\n")
-                f.write(f"Search range: [{p['D_min_um']:.4f}, {p['D_max_um']:.4f}] мкм\n")
+                f.write(f"Search range: [{p['D_min_um']:.4f}, {p['D_max_um']:.4f}] um\n")
                 f.write(f"Scan points: {p['N_scan']}\n\n")
 
                 f.write("Mix (Number Fraction):\n")
@@ -2414,17 +2412,17 @@ class MainWindow(QMainWindow):
 
                 for i, sol in enumerate(solutions):
                     f.write(f"\nSolution #{i+1}:\n")
-                    f.write(f"  D = {sol['D_um']:.6f} мкм\n")
+                    f.write(f"  D = {sol['D_um']:.6f} um\n")
                     if sol['N'] is not None:
-                        f.write(f"  N = {sol['N']:.6e} 1/м³\n")
-                        f.write(f"  {alpha_name} (check) = {sol.get('alpha_check', float('nan')):.6e} 1/м\n")
+                        f.write(f"  N = {sol['N']:.6e} 1/m^3\n")
+                        f.write(f"  {alpha_name} (check) = {sol.get('alpha_check', float('nan')):.6e} 1/m\n")
                         f.write(f"  {tau_name}=alpha*L (check) = {sol.get('tau_check', float('nan')):.6e}\n")
                         f.write(f"  exp(-{tau_name}) ({transmittance_note}) = {sol.get('transmittance_check', float('nan')):.6e}\n")
                     if inverse_shows_avg_mec_reference(input_mode):
-                        f.write(f"  AVG MEC (reference) = {sol.get('avg_mec_check', float('nan')):.6e} м²/г\n")
+                        f.write(f"  AVG MEC (reference) = {sol.get('avg_mec_check', float('nan')):.6e} m^2/g\n")
                     f.write(f"  {metric_label} (check) = {sol['mec_check']:.6e}{units_suffix}\n")
                     f.write(f"  Relative error = {sol.get('rel_error', 0)*100:.4f}%\n")
-                    f.write(f"  m_particle = {sol['m_particle_kg']:.6e} кг\n")
+                    f.write(f"  m_particle = {sol['m_particle_kg']:.6e} kg\n")
 
                 f.write(f"\n\nSCAN DATA (D vs {metric_label}):\n")
                 f.write("-" * 50 + "\n")

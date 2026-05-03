@@ -29,6 +29,7 @@ You can also run the application from source with `uv` (see [Running](#running))
 - Inverse diameter search from a target `MEC`, `alpha`, `tau`, `T_eff`, or `AVG T`.
 - Optimization of a custom particle-size distribution window for maximum `MEC * L`.
 - Export of forward, inverse, and optimization results to text files.
+- Bilingual desktop UI: English by default, with Russian available from the `Language` menu.
 
 ## Materials
 
@@ -60,9 +61,9 @@ uv run --locked python mie_shield.py
 
 The main window has three calculation tabs:
 
-- Forward problem (`Прямая задача`)
-- Inverse problem (`Обратная задача`)
-- Optimization (`Оптимизация`)
+- Forward problem
+- Inverse problem
+- Optimization
 
 ## Packaging
 
