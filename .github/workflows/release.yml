@@ -6,7 +6,7 @@ on:
       release_tag:
         description: "Release tag to update"
         required: true
-        default: "v1.0.0"
+        default: "v1.0.1"
         type: string
   push:
     tags:
@@ -40,6 +40,7 @@ jobs:
         with:
           name: mie-shield-macos
           path: dist/*.dmg
+          if-no-files-found: error
 
   windows:
     name: Windows EXE
@@ -66,6 +67,7 @@ jobs:
         with:
           name: mie-shield-windows-exe
           path: dist/windows/MieShield.exe
+          if-no-files-found: error
 
   linux:
     name: Linux tarball
@@ -111,6 +113,7 @@ jobs:
         with:
           name: mie-shield-linux
           path: dist/*linux*.tar.gz
+          if-no-files-found: error
 
   release:
     name: GitHub Release
@@ -134,7 +137,7 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
-          body_path: docs/release-notes-v1.0.0.md
+          body_path: docs/release-notes-v1.0.1.md
           files: release-assets/**/*
           overwrite_files: true
           fail_on_unmatched_files: true

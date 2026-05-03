@@ -110,7 +110,7 @@ Output: `dist/MieShield-<version>-linux-x64.tar.gz`. The archive contains a stan
 ### Releases
 
 Pushing a `v*` tag triggers the `Build release artifacts` workflow, which builds release artifacts and attaches them to the GitHub Release.
-Manual workflow runs accept a `release_tag` input, defaulting to `v1.0.0`, and overwrite existing release assets for that tag. The release workflow publishes the macOS DMG, Windows onefile `MieShield.exe`, and Linux x64 tarball.
+Manual workflow runs accept a `release_tag` input, defaulting to `v1.0.1`, and overwrite existing release assets for that tag. The release workflow publishes the macOS DMG, Windows onefile `MieShield.exe`, and Linux x64 tarball.
 
 The Windows build disables Nuitka link-time optimization by default because the
 MSVC linker can run out of heap when compiling the PySide6, Matplotlib, SciPy,
