@@ -50,6 +50,10 @@ from mie_i18n import i18n, t
 from mie_i18n_strings import LANGUAGE_NAMES, SUPPORTED_LANGUAGES
 
 
+def material_label(code: str) -> str:
+    return f"{code} - {t(f'material.{code}')}"
+
+
 def _resource_path(name: str) -> Path:
     return Path(__file__).resolve().with_name(name)
 
@@ -76,6 +80,7 @@ def _set_windows_app_user_model_id() -> None:
 from mie_core import (
     # Reference data
     MATERIALS_DB,
+    MieCoreError,
     # Mode constants (typed string literals)
     CONC_MASS,
     CONC_NUMBER,
@@ -408,6 +413,8 @@ class CalculationWorker(QThread):
                 )
                 self.finished_signal.emit(True, "Расчет успешно завершен.")
 
+        except MieCoreError as exc:
+            self.finished_signal.emit(False, exc.code)
         except Exception:
             err_msg = traceback.format_exc()
             self.finished_signal.emit(False, f"Критическая ошибка:\n{err_msg}")
@@ -732,6 +739,8 @@ class InverseWorker(QThread):
             self.progress_signal.emit(100)
             self.finished_signal.emit(True, f"Обратная задача завершена. Найдено решений: {len(solutions)}")
 
+        except MieCoreError as exc:
+            self.finished_signal.emit(False, exc.code)
         except Exception:
             err_msg = traceback.format_exc()
             self.finished_signal.emit(False, f"Критическая ошибка:\n{err_msg}")
@@ -1012,6 +1021,8 @@ class OptimizationWorker(QThread):
             self.progress_signal.emit(100)
             self.finished_signal.emit(True, f"Оптимизация завершена. (MEC·L)_mean={mec_l_mean:.4e}, (MEC·L)_min={mec_l_min:.4e}")
 
+        except MieCoreError as exc:
+            self.finished_signal.emit(False, exc.code)
         except Exception:
             err_msg = traceback.format_exc()
             self.finished_signal.emit(False, f"Критическая ошибка:\n{err_msg}")
@@ -1034,6 +1045,7 @@ class MainWindow(QMainWindow):
         self._optim_marker = None
         self._language_menu = None
         self._language_actions = {}
+        self._material_checkboxes = []
 
         self._build_language_menu()
 
@@ -1106,6 +1118,8 @@ class MainWindow(QMainWindow):
         self.tabs.setTabText(self.tabs.indexOf(self.tab_forward), t("tab.forward"))
         self.tabs.setTabText(self.tabs.indexOf(self.tab_inverse), t("tab.inverse"))
         self.tabs.setTabText(self.tabs.indexOf(self.tab_optim), t("tab.optim"))
+        for code, checkbox in self._material_checkboxes:
+            checkbox.setText(material_label(code))
         self.lbl_st.setText(t("status.ready"))
 
     def _build_forward_tab(self, tab):
@@ -1190,9 +1204,10 @@ class MainWindow(QMainWindow):
         layout.addWidget(g2)
         l2 = QVBoxLayout(g2)
         self.mats = {}
-        for c, n, _rho in MATERIALS_DB:
+        for c, _rho in MATERIALS_DB:
             h = QHBoxLayout()
-            cb = QCheckBox(f"{c} - {n}")
+            cb = QCheckBox("")
+            self._material_checkboxes.append((c, cb))
             sp = QDoubleSpinBox()
             sp.setLocale(QLocale(QLocale.C))
             sp.setRange(0, 100)
@@ -1323,9 +1338,10 @@ class MainWindow(QMainWindow):
         layout.addWidget(g_mat)
         l_mat = QVBoxLayout(g_mat)
         self.inv_mats = {}
-        for c, n, _rho in MATERIALS_DB:
+        for c, _rho in MATERIALS_DB:
             h = QHBoxLayout()
-            cb = QCheckBox(f"{c} - {n}")
+            cb = QCheckBox("")
+            self._material_checkboxes.append((c, cb))
             sp = QDoubleSpinBox()
             sp.setLocale(QLocale(QLocale.C))
             sp.setRange(0, 100)
@@ -1393,9 +1409,10 @@ class MainWindow(QMainWindow):
         layout.addWidget(g_mat)
         l_mat = QVBoxLayout(g_mat)
         self.opt_mats = {}
-        for c, n, _rho in MATERIALS_DB:
+        for c, _rho in MATERIALS_DB:
             h = QHBoxLayout()
-            cb = QCheckBox(f"{c} - {n}")
+            cb = QCheckBox("")
+            self._material_checkboxes.append((c, cb))
             sp = QDoubleSpinBox()
             sp.setLocale(QLocale(QLocale.C))
             sp.setRange(0, 100)

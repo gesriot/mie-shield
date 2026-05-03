@@ -107,7 +107,7 @@ def test_make_wavelengths_uses_endpoints_and_actual_step():
 
 
 def test_refractive_indices_are_finite_for_all_materials():
-    material_codes = [code for code, _name, _rho in ms.MATERIALS_DB]
+    material_codes = [code for code, _rho in ms.MATERIALS_DB]
 
     for material in material_codes:
         for lam_um in (0.4, 0.59, 5.0, 10.0, 20.0, 50.0):
@@ -119,7 +119,7 @@ def test_refractive_indices_are_finite_for_all_materials():
 
 
 def test_zincl2_visible_index_and_density_are_in_database():
-    density_by_code = {code: rho for code, _name, rho in ms.MATERIALS_DB}
+    density_by_code = {code: rho for code, rho in ms.MATERIALS_DB}
     m = ms.get_ri("ZnCl2", 0.589)
 
     assert density_by_code["ZnCl2"] == pytest.approx(2907.0)
@@ -201,8 +201,10 @@ def test_resolve_concentration_rejects_unknown_mode():
     # Guards against silent fall-through when a non-canonical string slips in
     # (e.g. an old UI label leaking into a worker dict). Without this check
     # an unknown mode was silently treated as mass concentration.
-    with pytest.raises(ValueError, match="Неизвестный режим концентрации"):
+    with pytest.raises(ms.MieCoreError) as exc:
         ms.resolve_concentration("Числовая", 5e8, 1e-15)
+    assert exc.value.code == "err.conc_invalid_mode"
+    assert exc.value.params == {"conc_mode": "Числовая"}
 
 
 def test_resolve_concentration_round_trip_mass_and_number():
@@ -444,7 +446,7 @@ def test_inverse_worker_rejects_invalid_transmittance(monkeypatch):
     out = run_worker(ms.InverseWorker(inverse_params("effective_transmittance", 1.1)))
 
     assert out.finished[0] is False
-    assert "Пропускание T должно быть" in out.finished[1]
+    assert out.finished[1] == "err.transmittance_out_of_range"
 
 
 def optimization_params(mode, criterion):

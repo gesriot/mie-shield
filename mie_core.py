@@ -72,16 +72,16 @@ def lognormal_cdf(d_um: float, dg_um: float, sigma_g: float) -> float:
     return 0.5 * (1.0 + math.erf(z))
 
 MATERIALS_DB = [
-    ("C", "Углерод (Soot)", 1800.0),
-    ("Mg", "Магний (Metal)", 1738.0),
-    ("MgCl2", "Хлорид магния", 2320.0),
-    ("ZnCl2", "Хлорид цинка", 2907.0),
-    ("MgF2", "Фторид магния", 3180.0),
-    ("Al4C3", "Карбид алюминия", 2360.0),
-    ("Al", "Алюминий (Metal)", 2700.0),
-    ("MgO", "Оксид магния", 3580.0),
-    ("Al2O3", "Оксид алюминия (корунд)", 3987.0),
-    ("CuZn", "Латунь Cu70/Zn30 (Brass)", 8530.0),
+    ("C", 1800.0),
+    ("Mg", 1738.0),
+    ("MgCl2", 2320.0),
+    ("ZnCl2", 2907.0),
+    ("MgF2", 3180.0),
+    ("Al4C3", 2360.0),
+    ("Al", 2700.0),
+    ("MgO", 3580.0),
+    ("Al2O3", 3987.0),
+    ("CuZn", 8530.0),
 ]
 
 ConcMode: TypeAlias = Literal["mass", "number"]
@@ -94,6 +94,13 @@ RIModel: TypeAlias = Callable[[float], complex]
 Fractions: TypeAlias = dict[str, float]
 DensityMap: TypeAlias = dict[str, float]
 ForwardRow: TypeAlias = dict[str, object]
+
+
+class MieCoreError(ValueError):
+    def __init__(self, code: str, **params: object) -> None:
+        super().__init__(code)
+        self.code = code
+        self.params = params
 
 CONC_MASS: ConcMode = "mass"
 CONC_NUMBER: ConcMode = "number"
@@ -330,7 +337,7 @@ def get_ri(material: str, lam_um: float) -> complex:
 
 
 def material_density_map() -> DensityMap:
-    return {code: rho for (code, _name, rho) in MATERIALS_DB}
+    return {code: rho for (code, rho) in MATERIALS_DB}
 
 
 def mixture_density(fractions: Fractions, rho_by_code: DensityMap | None = None) -> float:
@@ -361,11 +368,11 @@ def distributed_particle_mass_kg(
 
 def resolve_concentration(conc_mode: ConcMode, conc_value: float, avg_mass_kg: float) -> tuple[float, float]:
     if conc_mode not in (CONC_MASS, CONC_NUMBER):
-        raise ValueError(f"Неизвестный режим концентрации: {conc_mode!r}.")
+        raise MieCoreError("err.conc_invalid_mode", conc_mode=conc_mode)
     if not np.isfinite(conc_value) or conc_value <= 0:
-        raise ValueError("Концентрация должна быть > 0.")
+        raise MieCoreError("err.conc_non_positive", conc_value=conc_value)
     if not np.isfinite(avg_mass_kg) or avg_mass_kg <= 0:
-        raise ValueError("Средняя масса частицы некорректна (<=0 или NaN).")
+        raise MieCoreError("err.avg_mass_invalid", avg_mass_kg=avg_mass_kg)
 
     if conc_mode == CONC_NUMBER:
         num_conc = conc_value
@@ -375,7 +382,7 @@ def resolve_concentration(conc_mode: ConcMode, conc_value: float, avg_mass_kg: f
         num_conc = (mass_conc_g * 1e-3) / avg_mass_kg
 
     if not np.isfinite(num_conc) or num_conc <= 0:
-        raise ValueError("Числовая концентрация некорректна (<=0 или NaN).")
+        raise MieCoreError("err.number_conc_invalid", num_conc=num_conc)
     return num_conc, mass_conc_g
 
 
@@ -486,10 +493,10 @@ def resolve_inverse_target(
 ) -> tuple[float, float | None]:
     if inverse_requires_mass_conc(input_mode):
         if mass_conc_g is None or mass_conc_g <= 0:
-            raise ValueError("Массовая концентрация должна быть > 0.")
+            raise MieCoreError("err.mass_conc_positive", mass_conc_g=mass_conc_g)
         if inverse_uses_transmittance(input_mode):
             if not (0.0 < target_value <= 1.0):
-                raise ValueError("Пропускание T должно быть в диапазоне (0, 1].")
+                raise MieCoreError("err.transmittance_out_of_range", target_value=target_value)
             equivalent_mec = -np.log(target_value) / (mass_conc_g * path_length_m)
             return target_value, equivalent_mec
         if input_mode == INV_TAU:
@@ -507,12 +514,12 @@ def inverse_metric_from_mec_values(
 ) -> float:
     if input_mode == INV_TRANSMITTANCE:
         if mass_conc_g is None:
-            raise ValueError("Массовая концентрация должна быть > 0.")
+            raise MieCoreError("err.mass_conc_positive", mass_conc_g=mass_conc_g)
         tau_vals = np.minimum(mec_values * mass_conc_g * path_length_m, TAU_UNDERFLOW_LIMIT)
         return float(np.mean(np.exp(-tau_vals)))
     if input_mode == INV_EFFECTIVE_TRANSMITTANCE:
         if mass_conc_g is None:
-            raise ValueError("Массовая концентрация должна быть > 0.")
+            raise MieCoreError("err.mass_conc_positive", mass_conc_g=mass_conc_g)
         tau_avg = float(np.mean(mec_values) * mass_conc_g * path_length_m)
         return transmittance_from_tau(tau_avg)
     return float(np.mean(mec_values))
