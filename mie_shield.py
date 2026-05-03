@@ -1056,6 +1056,8 @@ class MainWindow(QMainWindow):
         self._language_menu = None
         self._language_actions = {}
         self._material_checkboxes = []
+        self._text_bindings = []
+        self._combo_bindings = []
 
         self._build_language_menu()
 
@@ -1125,16 +1127,56 @@ class MainWindow(QMainWindow):
         for code, action in self._language_actions.items():
             action.setText(LANGUAGE_NAMES[code])
             action.setChecked(code == i18n.language)
+        for widget, method_name, key in self._text_bindings:
+            getattr(widget, method_name)(t(key))
+        for combo, items in self._combo_bindings:
+            current_data = combo.currentData()
+            was_blocked = combo.blockSignals(True)
+            for index, (key, _data) in enumerate(items):
+                combo.setItemText(index, t(key))
+            index = combo.findData(current_data)
+            if index >= 0:
+                combo.setCurrentIndex(index)
+            combo.blockSignals(was_blocked)
         self.tabs.setTabText(self.tabs.indexOf(self.tab_forward), t("tab.forward"))
         self.tabs.setTabText(self.tabs.indexOf(self.tab_inverse), t("tab.inverse"))
         self.tabs.setTabText(self.tabs.indexOf(self.tab_optim), t("tab.optim"))
         for code, checkbox in self._material_checkboxes:
             checkbox.setText(material_label(code))
+        if hasattr(self, "conc_mode"):
+            self._on_conc_mode_changed()
+        if hasattr(self, "inv_input_mode"):
+            self._on_inv_mode_changed()
         self.lbl_st.setText(t("status.ready"))
 
     def _message_from_key(self, key: str, params: object | None = None) -> str:
         kwargs = params if isinstance(params, dict) else {}
         return t(key, **kwargs)
+
+    def _bind_text(self, widget, method_name: str, key: str):
+        self._text_bindings.append((widget, method_name, key))
+        getattr(widget, method_name)(t(key))
+        return widget
+
+    def _tr_label(self, key: str) -> QLabel:
+        return self._bind_text(QLabel(""), "setText", key)
+
+    def _tr_groupbox(self, key: str) -> QGroupBox:
+        return self._bind_text(QGroupBox(""), "setTitle", key)
+
+    def _tr_button(self, key: str) -> QPushButton:
+        return self._bind_text(QPushButton(""), "setText", key)
+
+    def _tr_suffix(self, widget, key: str):
+        return self._bind_text(widget, "setSuffix", key)
+
+    def _add_tr_row(self, layout: QFormLayout, key: str, widget) -> None:
+        layout.addRow(self._tr_label(key), widget)
+
+    def _add_combo_items(self, combo: QComboBox, items: list[tuple[str, object]]) -> None:
+        for _key, data in items:
+            combo.addItem("", data)
+        self._combo_bindings.append((combo, items))
 
     def _build_forward_tab(self, tab):
         outer = QVBoxLayout(tab)
@@ -1147,21 +1189,26 @@ class MainWindow(QMainWindow):
         outer.addWidget(scroll)
         layout = QVBoxLayout(inner)
 
-        g1 = QGroupBox("1. Частицы")
+        g1 = self._tr_groupbox("forward.group.particles")
         layout.addWidget(g1)
         l1 = QFormLayout(g1)
 
         self.dist_type_combo = QComboBox()
-        self.dist_type_combo.addItem("Монодисперс", DIST_MONODISPERSE)
-        self.dist_type_combo.addItem("Лог-нормальное", DIST_LOGNORMAL)
-        self.dist_type_combo.addItem("Кастомное", DIST_CUSTOM)
+        self._add_combo_items(
+            self.dist_type_combo,
+            [
+                ("dist.monodisperse", DIST_MONODISPERSE),
+                ("dist.lognormal", DIST_LOGNORMAL),
+                ("dist.custom", DIST_CUSTOM),
+            ],
+        )
         self.dist_type_combo.setCurrentIndex(self.dist_type_combo.findData(DIST_LOGNORMAL))
         self.dist_type_combo.currentTextChanged.connect(self._on_dist_type_changed)
-        l1.addRow("Тип распределения:", self.dist_type_combo)
+        self._add_tr_row(l1, "label.distribution_type", self.dist_type_combo)
 
         self.s_d_mono = self._spin_ndec(DEFAULTS["D_MONO"], 0.001, 100, dec=3, step=0.01)
         self.s_d_mono.setEnabled(False)
-        self.lbl_d_mono = QLabel("D (мкм):")
+        self.lbl_d_mono = self._tr_label("label.d_um")
         self.lbl_d_mono.setEnabled(False)
         l1.addRow(self.lbl_d_mono, self.s_d_mono)
 
@@ -1173,11 +1220,11 @@ class MainWindow(QMainWindow):
         self.s_points.setRange(50, 10000)
         self.s_points.setValue(DEFAULTS["POINTS_D"])
 
-        self.lbl_dmin = QLabel("D min (мкм):")
-        self.lbl_dmax = QLabel("D max (мкм):")
-        self.lbl_dgm = QLabel("Dg (geom. mean, мкм):")
-        self.lbl_sigma = QLabel("Sigma_g (безразм.):")
-        self.lbl_points = QLabel("Точек сетки (N):")
+        self.lbl_dmin = self._tr_label("label.d_min_um")
+        self.lbl_dmax = self._tr_label("label.d_max_um")
+        self.lbl_dgm = self._tr_label("label.dg_um")
+        self.lbl_sigma = self._tr_label("label.sigma_g")
+        self.lbl_points = self._tr_label("label.grid_points")
 
         l1.addRow(self.lbl_dmin, self.s_dmin)
         l1.addRow(self.lbl_dmax, self.s_dmax)
@@ -1191,9 +1238,9 @@ class MainWindow(QMainWindow):
         self.s_custom_mu.setEnabled(False)
         self.s_custom_sigma.setEnabled(False)
 
-        self.lbl_custom_A = QLabel("A (амплитуда):")
-        self.lbl_custom_mu = QLabel("μ (ln-среднее):")
-        self.lbl_custom_sigma = QLabel("σ (ln-дисперсия):")
+        self.lbl_custom_A = self._tr_label("label.custom_a")
+        self.lbl_custom_mu = self._tr_label("label.custom_mu")
+        self.lbl_custom_sigma = self._tr_label("label.custom_sigma")
         self.lbl_custom_A.setEnabled(False)
         self.lbl_custom_mu.setEnabled(False)
         self.lbl_custom_sigma.setEnabled(False)
@@ -1204,17 +1251,17 @@ class MainWindow(QMainWindow):
 
         l1.addRow(self.lbl_points, self.s_points)
 
-        g_wl = QGroupBox("2. Спектр")
+        g_wl = self._tr_groupbox("forward.group.spectrum")
         layout.addWidget(g_wl)
         l_wl = QFormLayout(g_wl)
         self.s_wl_min = self._spin_ndec(DEFAULTS["WAVELENGTH_MIN"], 0.1, 1000, dec=2, step=0.01)
         self.s_wl_max = self._spin_ndec(DEFAULTS["WAVELENGTH_MAX"], 0.1, 1000, dec=2, step=0.01)
         self.s_wl_step = self._spin_ndec(DEFAULTS["WAVELENGTH_STEP"], 0.01, 100, dec=2, step=0.01)
-        l_wl.addRow("Lambda min (мкм):", self.s_wl_min)
-        l_wl.addRow("Lambda max (мкм):", self.s_wl_max)
-        l_wl.addRow("Шаг (мкм):", self.s_wl_step)
+        self._add_tr_row(l_wl, "label.lambda_min_um", self.s_wl_min)
+        self._add_tr_row(l_wl, "label.lambda_max_um", self.s_wl_max)
+        self._add_tr_row(l_wl, "label.step_um", self.s_wl_step)
 
-        g2 = QGroupBox("3. Смесь (Численная доля, %)")
+        g2 = self._tr_groupbox("group.mixture_number_fraction")
         layout.addWidget(g2)
         l2 = QVBoxLayout(g2)
         self.mats = {}
@@ -1240,12 +1287,17 @@ class MainWindow(QMainWindow):
             l2.addLayout(h)
             self.mats[c] = (cb, sp)
 
-        g_conc = QGroupBox("4. Концентрация и трасса")
+        g_conc = self._tr_groupbox("forward.group.concentration")
         layout.addWidget(g_conc)
         l_conc = QFormLayout(g_conc)
         self.conc_mode = QComboBox()
-        self.conc_mode.addItem("Числовая", CONC_NUMBER)
-        self.conc_mode.addItem("Массовая", CONC_MASS)
+        self._add_combo_items(
+            self.conc_mode,
+            [
+                ("conc.number", CONC_NUMBER),
+                ("conc.mass", CONC_MASS),
+            ],
+        )
         self.conc_mode.setCurrentIndex(self.conc_mode.findData(CONC_MASS))
         self.conc_value = QDoubleSpinBox()
         self.conc_value.setLocale(QLocale(QLocale.C))
@@ -1253,24 +1305,24 @@ class MainWindow(QMainWindow):
         self.conc_value.setDecimals(2)
         self.conc_value.setValue(1.2)
         self.conc_value.setAlignment(Qt.AlignRight)
-        self.conc_value.setSuffix(" г/м³")
+        self._tr_suffix(self.conc_value, "unit.g_per_m3")
         self.path_length = self._spin_ndec(DEFAULTS["PATH_LENGTH_M"], 0.1, 1000000, dec=1, step=0.1)
-        self.path_length.setSuffix(" м")
-        l_conc.addRow("Тип:", self.conc_mode)
-        l_conc.addRow("Значение:", self.conc_value)
-        l_conc.addRow("L трассы:", self.path_length)
+        self._tr_suffix(self.path_length, "unit.m")
+        self._add_tr_row(l_conc, "label.type", self.conc_mode)
+        self._add_tr_row(l_conc, "label.value", self.conc_value)
+        self._add_tr_row(l_conc, "label.path_length", self.path_length)
         self.conc_mode.currentTextChanged.connect(self._on_conc_mode_changed)
 
-        g3 = QGroupBox("5. Управление")
+        g3 = self._tr_groupbox("forward.group.controls")
         layout.addWidget(g3)
         l3 = QVBoxLayout(g3)
-        self.btn_run = QPushButton("ЗАПУСК")
+        self.btn_run = self._tr_button("button.run")
         self.btn_run.setFixedHeight(40)
         self.btn_run.clicked.connect(self.start)
-        self.btn_stop = QPushButton("СТОП")
+        self.btn_stop = self._tr_button("button.stop")
         self.btn_stop.setEnabled(False)
         self.btn_stop.clicked.connect(self.stop)
-        self.btn_save = QPushButton("Экспорт результата")
+        self.btn_save = self._tr_button("button.export_result")
         self.btn_save.setEnabled(False)
         self.btn_save.clicked.connect(self.save)
         l3.addWidget(self.btn_run)
@@ -1282,43 +1334,53 @@ class MainWindow(QMainWindow):
     def _build_inverse_tab(self, tab):
         layout = QVBoxLayout(tab)
 
-        g_input = QGroupBox("1. Входные данные")
+        g_input = self._tr_groupbox("inverse.group.input")
         layout.addWidget(g_input)
         l_input = QFormLayout(g_input)
 
         self.inv_wl_mode = QComboBox()
-        self.inv_wl_mode.addItem("Одна λ", INV_WL_SINGLE)
-        self.inv_wl_mode.addItem("Диапазон λ", INV_WL_RANGE)
+        self._add_combo_items(
+            self.inv_wl_mode,
+            [
+                ("wl.single", INV_WL_SINGLE),
+                ("wl.range", INV_WL_RANGE),
+            ],
+        )
         self.inv_wl_mode.currentTextChanged.connect(self._on_inv_wl_mode_changed)
-        l_input.addRow("Спектр:", self.inv_wl_mode)
+        self._add_tr_row(l_input, "label.spectrum", self.inv_wl_mode)
 
         self.inv_lambda = self._spin_ndec(0.59, 0.1, 1000, dec=2, step=0.01)
-        self.lbl_inv_lambda = QLabel("λ (мкм):")
+        self.lbl_inv_lambda = self._tr_label("label.lambda_um")
         l_input.addRow(self.lbl_inv_lambda, self.inv_lambda)
 
         self.inv_wl_min = self._spin_ndec(0.4, 0.1, 1000, dec=2, step=0.01)
         self.inv_wl_max = self._spin_ndec(0.78, 0.1, 1000, dec=2, step=0.01)
         self.inv_wl_step = self._spin_ndec(DEFAULTS["WAVELENGTH_STEP"], 0.01, 100, dec=2, step=0.01)
-        self.lbl_inv_wl_min = QLabel("λ min (мкм):")
-        self.lbl_inv_wl_max = QLabel("λ max (мкм):")
-        self.lbl_inv_wl_step = QLabel("Шаг λ (мкм):")
+        self.lbl_inv_wl_min = self._tr_label("label.lambda_min_um_short")
+        self.lbl_inv_wl_max = self._tr_label("label.lambda_max_um_short")
+        self.lbl_inv_wl_step = self._tr_label("label.lambda_step_um")
         l_input.addRow(self.lbl_inv_wl_min, self.inv_wl_min)
         l_input.addRow(self.lbl_inv_wl_max, self.inv_wl_max)
         l_input.addRow(self.lbl_inv_wl_step, self.inv_wl_step)
         self._on_inv_wl_mode_changed(self.inv_wl_mode.currentText())
 
         self.inv_path_length = self._spin_ndec(DEFAULTS["PATH_LENGTH_M"], 0.1, 1000000, dec=1, step=0.1)
-        self.inv_path_length.setSuffix(" м")
-        l_input.addRow("L трассы:", self.inv_path_length)
+        self._tr_suffix(self.inv_path_length, "unit.m")
+        self._add_tr_row(l_input, "label.path_length", self.inv_path_length)
 
         self.inv_input_mode = QComboBox()
-        self.inv_input_mode.addItem("T_eff = exp(-AVG alpha*L)", INV_EFFECTIVE_TRANSMITTANCE)
-        self.inv_input_mode.addItem("AVG T = mean(exp(-alpha*L))", INV_TRANSMITTANCE)
-        self.inv_input_mode.addItem("tau = alpha*L", INV_TAU)
-        self.inv_input_mode.addItem("alpha (1/м)", INV_ALPHA)
-        self.inv_input_mode.addItem("MEC (м²/г)", INV_MEC)
+        self._add_combo_items(
+            self.inv_input_mode,
+            [
+                ("inverse.input.effective_transmittance", INV_EFFECTIVE_TRANSMITTANCE),
+                ("inverse.input.transmittance", INV_TRANSMITTANCE),
+                ("inverse.input.tau", INV_TAU),
+                ("inverse.input.alpha", INV_ALPHA),
+                ("inverse.input.mec", INV_MEC),
+            ],
+        )
         self.inv_input_mode.currentTextChanged.connect(self._on_inv_mode_changed)
-        l_input.addRow("Тип входа:", self.inv_input_mode)
+        self._add_tr_row(l_input, "label.input_type", self.inv_input_mode)
 
         self.inv_target_value = QDoubleSpinBox()
         self.inv_target_value.setLocale(QLocale(QLocale.C))
@@ -1326,15 +1388,15 @@ class MainWindow(QMainWindow):
         self.inv_target_value.setDecimals(6)
         self.inv_target_value.setValue(1e-3)
         self.inv_target_value.setAlignment(Qt.AlignRight)
-        l_input.addRow("Значение:", self.inv_target_value)
+        self._add_tr_row(l_input, "label.value", self.inv_target_value)
 
         self.inv_mass_conc = self._spin_ndec(1.2, 1e-30, 1e18, dec=6, step=0.001)
-        self.inv_mass_conc.setSuffix(" г/м³")
-        self.lbl_inv_mass_conc = QLabel("ρ_mass (г/м³):")
+        self._tr_suffix(self.inv_mass_conc, "unit.g_per_m3")
+        self.lbl_inv_mass_conc = self._tr_label("label.mass_conc")
         l_input.addRow(self.lbl_inv_mass_conc, self.inv_mass_conc)
         self._on_inv_mode_changed(self.inv_input_mode.currentText())
 
-        g_search = QGroupBox("2. Диапазон поиска D")
+        g_search = self._tr_groupbox("inverse.group.search_range")
         layout.addWidget(g_search)
         l_search = QFormLayout(g_search)
 
@@ -1344,11 +1406,11 @@ class MainWindow(QMainWindow):
         self.inv_n_scan.setRange(100, 100000)
         self.inv_n_scan.setValue(DEFAULTS["INV_N_SCAN"])
 
-        l_search.addRow("D min (мкм):", self.inv_d_min)
-        l_search.addRow("D max (мкм):", self.inv_d_max)
-        l_search.addRow("Точек сканирования:", self.inv_n_scan)
+        self._add_tr_row(l_search, "label.d_min_um", self.inv_d_min)
+        self._add_tr_row(l_search, "label.d_max_um", self.inv_d_max)
+        self._add_tr_row(l_search, "label.scan_points", self.inv_n_scan)
 
-        g_mat = QGroupBox("3. Смесь (Численная доля, %)")
+        g_mat = self._tr_groupbox("group.mixture_number_fraction")
         layout.addWidget(g_mat)
         l_mat = QVBoxLayout(g_mat)
         self.inv_mats = {}
@@ -1375,17 +1437,17 @@ class MainWindow(QMainWindow):
             l_mat.addLayout(h)
             self.inv_mats[c] = (cb, sp)
 
-        g_ctrl = QGroupBox("4. Управление")
+        g_ctrl = self._tr_groupbox("inverse.group.controls")
         layout.addWidget(g_ctrl)
         l_ctrl = QVBoxLayout(g_ctrl)
 
-        self.btn_inv_run = QPushButton("ПОИСК D")
+        self.btn_inv_run = self._tr_button("button.search_d")
         self.btn_inv_run.setFixedHeight(40)
         self.btn_inv_run.clicked.connect(self.start_inverse)
-        self.btn_inv_stop = QPushButton("СТОП")
+        self.btn_inv_stop = self._tr_button("button.stop")
         self.btn_inv_stop.setEnabled(False)
         self.btn_inv_stop.clicked.connect(self.stop_inverse)
-        self.btn_inv_save = QPushButton("Экспорт результата")
+        self.btn_inv_save = self._tr_button("button.export_result")
         self.btn_inv_save.setEnabled(False)
         self.btn_inv_save.clicked.connect(self.save_inverse)
 
@@ -1406,20 +1468,20 @@ class MainWindow(QMainWindow):
         outer.addWidget(scroll)
         layout = QVBoxLayout(inner)
 
-        g_wl = QGroupBox("1. Спектр, трасса и материалы")
+        g_wl = self._tr_groupbox("optim.group.spectrum_path_materials")
         layout.addWidget(g_wl)
         l_wl = QFormLayout(g_wl)
         self.opt_wl_min = self._spin_ndec(DEFAULTS["WAVELENGTH_MIN"], 0.1, 1000, dec=2, step=0.01)
         self.opt_wl_max = self._spin_ndec(DEFAULTS["WAVELENGTH_MAX"], 0.1, 1000, dec=2, step=0.01)
         self.opt_wl_step = self._spin_ndec(DEFAULTS["WAVELENGTH_STEP"], 0.01, 100, dec=2, step=0.01)
-        l_wl.addRow("λ min (мкм):", self.opt_wl_min)
-        l_wl.addRow("λ max (мкм):", self.opt_wl_max)
-        l_wl.addRow("Шаг λ (мкм):", self.opt_wl_step)
+        self._add_tr_row(l_wl, "label.lambda_min_um_short", self.opt_wl_min)
+        self._add_tr_row(l_wl, "label.lambda_max_um_short", self.opt_wl_max)
+        self._add_tr_row(l_wl, "label.lambda_step_um", self.opt_wl_step)
         self.opt_path_length = self._spin_ndec(DEFAULTS["PATH_LENGTH_M"], 0.1, 1000000, dec=1, step=0.1)
-        self.opt_path_length.setSuffix(" м")
-        l_wl.addRow("L трассы:", self.opt_path_length)
+        self._tr_suffix(self.opt_path_length, "unit.m")
+        self._add_tr_row(l_wl, "label.path_length", self.opt_path_length)
 
-        g_mat = QGroupBox("2. Смесь (Численная доля, %)")
+        g_mat = self._tr_groupbox("optim.group.mixture_number_fraction")
         layout.addWidget(g_mat)
         l_mat = QVBoxLayout(g_mat)
         self.opt_mats = {}
@@ -1446,19 +1508,24 @@ class MainWindow(QMainWindow):
             l_mat.addLayout(h)
             self.opt_mats[c] = (cb, sp)
 
-        g_dist = QGroupBox("3. Параметры распределения")
+        g_dist = self._tr_groupbox("optim.group.distribution_params")
         layout.addWidget(g_dist)
         l_dist = QFormLayout(g_dist)
         self.opt_mode = QComboBox()
-        self.opt_mode.addItem("Только окно D", OPT_WINDOW_ONLY)
-        self.opt_mode.addItem("Полная (μ, σ, окно)", OPT_FULL)
+        self._add_combo_items(
+            self.opt_mode,
+            [
+                ("optim.mode.window_only", OPT_WINDOW_ONLY),
+                ("optim.mode.full", OPT_FULL),
+            ],
+        )
         self.opt_mode.currentTextChanged.connect(self._on_optim_mode_changed)
-        l_dist.addRow("Режим:", self.opt_mode)
+        self._add_tr_row(l_dist, "label.mode", self.opt_mode)
 
         self.opt_mu = self._spin_ndec(DEFAULTS["CUSTOM_MU"], -10, 10, dec=6, step=0.01)
         self.opt_sigma = self._spin_ndec(DEFAULTS["CUSTOM_SIGMA"], 0.001, 10, dec=6, step=0.01)
-        self.lbl_opt_mu = QLabel("μ (фикс.):")
-        self.lbl_opt_sigma = QLabel("σ (фикс.):")
+        self.lbl_opt_mu = self._tr_label("label.mu_fixed")
+        self.lbl_opt_sigma = self._tr_label("label.sigma_fixed")
         l_dist.addRow(self.lbl_opt_mu, self.opt_mu)
         l_dist.addRow(self.lbl_opt_sigma, self.opt_sigma)
 
@@ -1466,10 +1533,10 @@ class MainWindow(QMainWindow):
         self.opt_mu_max = self._spin_ndec(3.0, -10, 10, dec=6, step=0.1)
         self.opt_sigma_min = self._spin_ndec(0.1, 0.001, 10, dec=6, step=0.01)
         self.opt_sigma_max = self._spin_ndec(2.0, 0.001, 10, dec=6, step=0.01)
-        self.lbl_opt_mu_min = QLabel("μ min:")
-        self.lbl_opt_mu_max = QLabel("μ max:")
-        self.lbl_opt_sigma_min = QLabel("σ min:")
-        self.lbl_opt_sigma_max = QLabel("σ max:")
+        self.lbl_opt_mu_min = self._tr_label("label.mu_min")
+        self.lbl_opt_mu_max = self._tr_label("label.mu_max")
+        self.lbl_opt_sigma_min = self._tr_label("label.sigma_min")
+        self.lbl_opt_sigma_max = self._tr_label("label.sigma_max")
         l_dist.addRow(self.lbl_opt_mu_min, self.opt_mu_min)
         l_dist.addRow(self.lbl_opt_mu_max, self.opt_mu_max)
         l_dist.addRow(self.lbl_opt_sigma_min, self.opt_sigma_min)
@@ -1478,7 +1545,7 @@ class MainWindow(QMainWindow):
                   self.lbl_opt_mu_min, self.lbl_opt_mu_max, self.lbl_opt_sigma_min, self.lbl_opt_sigma_max]:
             w.setEnabled(False)
 
-        g_search = QGroupBox("4. Область поиска D")
+        g_search = self._tr_groupbox("optim.group.d_search")
         layout.addWidget(g_search)
         l_search = QFormLayout(g_search)
         self.opt_d_scan_min = self._spin_ndec(0.01, 0.001, 100, dec=3, step=0.01)
@@ -1492,30 +1559,35 @@ class MainWindow(QMainWindow):
         self.opt_n_window = QSpinBox()
         self.opt_n_window.setRange(10, 200)
         self.opt_n_window.setValue(50)
-        l_search.addRow("D scan min (мкм):", self.opt_d_scan_min)
-        l_search.addRow("D scan max (мкм):", self.opt_d_scan_max)
-        l_search.addRow("Точек карты (N_D_scan):", self.opt_n_d_scan)
-        l_search.addRow("Точек PDF (N_D_points):", self.opt_n_d_points)
-        l_search.addRow("Сетка окна (N_window):", self.opt_n_window)
+        self._add_tr_row(l_search, "label.d_scan_min_um", self.opt_d_scan_min)
+        self._add_tr_row(l_search, "label.d_scan_max_um", self.opt_d_scan_max)
+        self._add_tr_row(l_search, "label.map_points", self.opt_n_d_scan)
+        self._add_tr_row(l_search, "label.pdf_points", self.opt_n_d_points)
+        self._add_tr_row(l_search, "label.window_grid", self.opt_n_window)
 
-        g_crit = QGroupBox("5. Критерий")
+        g_crit = self._tr_groupbox("optim.group.criterion")
         layout.addWidget(g_crit)
         l_crit = QFormLayout(g_crit)
         self.opt_criterion = QComboBox()
-        self.opt_criterion.addItem("Максимизировать mean MEC·L", OPT_MEAN)
-        self.opt_criterion.addItem("Максимизировать min MEC·L", OPT_MIN)
-        l_crit.addRow("Критерий:", self.opt_criterion)
+        self._add_combo_items(
+            self.opt_criterion,
+            [
+                ("optim.criterion.mean", OPT_MEAN),
+                ("optim.criterion.min", OPT_MIN),
+            ],
+        )
+        self._add_tr_row(l_crit, "label.criterion", self.opt_criterion)
 
-        g_ctrl = QGroupBox("6. Управление")
+        g_ctrl = self._tr_groupbox("optim.group.controls")
         layout.addWidget(g_ctrl)
         l_ctrl = QVBoxLayout(g_ctrl)
-        self.btn_opt_run = QPushButton("ОПТИМИЗАЦИЯ")
+        self.btn_opt_run = self._tr_button("button.optimize")
         self.btn_opt_run.setFixedHeight(40)
         self.btn_opt_run.clicked.connect(self.start_optim)
-        self.btn_opt_stop = QPushButton("СТОП")
+        self.btn_opt_stop = self._tr_button("button.stop")
         self.btn_opt_stop.setEnabled(False)
         self.btn_opt_stop.clicked.connect(self.stop_optim)
-        self.btn_opt_save = QPushButton("Экспорт результата")
+        self.btn_opt_save = self._tr_button("button.export_result")
         self.btn_opt_save.setEnabled(False)
         self.btn_opt_save.clicked.connect(self.save_optim)
         l_ctrl.addWidget(self.btn_opt_run)
@@ -1853,12 +1925,12 @@ class MainWindow(QMainWindow):
         conc_mode = self._combo_data(self.conc_mode, CONC_MASS)
         if conc_mode == CONC_NUMBER:
             self.conc_value.setDecimals(6)
-            self.conc_value.setSuffix(" 1/м³")
+            self.conc_value.setSuffix(t("unit.per_m3"))
             if self.conc_value.value() <= 0:
                 self.conc_value.setValue(1e9)
         else:
             self.conc_value.setDecimals(2)
-            self.conc_value.setSuffix(" г/м³")
+            self.conc_value.setSuffix(t("unit.g_per_m3"))
             if self.conc_value.value() <= 0:
                 self.conc_value.setValue(1.2)
 
@@ -1890,10 +1962,10 @@ class MainWindow(QMainWindow):
             self.inv_target_value.setSuffix("")
         elif input_mode == INV_ALPHA:
             self.inv_target_value.setDecimals(6)
-            self.inv_target_value.setSuffix(" 1/м")
+            self.inv_target_value.setSuffix(t("unit.per_m"))
         else:
             self.inv_target_value.setDecimals(6)
-            self.inv_target_value.setSuffix(" м²/г")
+            self.inv_target_value.setSuffix(t("unit.m2_per_g"))
 
     def log_msg(self, t):
         self.log.append(t)

@@ -28,6 +28,8 @@ def test_main_window_live_switches_tab_labels():
         assert window.tabs.tabText(window.tabs.indexOf(window.tab_forward)) == "Forward problem"
         assert window.tabs.tabText(window.tabs.indexOf(window.tab_inverse)) == "Inverse problem"
         assert window.tabs.tabText(window.tabs.indexOf(window.tab_optim)) == "Optimization"
+        assert window.dist_type_combo.itemText(0) == "Monodisperse"
+        assert window.btn_run.text() == "RUN"
         assert window.mats["C"][0].text() == "C - Carbon (Soot)"
         assert window.lbl_st.text() == "System ready."
 
@@ -35,6 +37,8 @@ def test_main_window_live_switches_tab_labels():
         assert window.tabs.tabText(window.tabs.indexOf(window.tab_forward)) == "Прямая задача"
         assert window.tabs.tabText(window.tabs.indexOf(window.tab_inverse)) == "Обратная задача"
         assert window.tabs.tabText(window.tabs.indexOf(window.tab_optim)) == "Оптимизация"
+        assert window.dist_type_combo.itemText(0) == "Монодисперс"
+        assert window.btn_run.text() == "ЗАПУСК"
         assert window.mats["C"][0].text() == "C - Углерод (Soot)"
         assert window.lbl_st.text() == "Система готова."
 
