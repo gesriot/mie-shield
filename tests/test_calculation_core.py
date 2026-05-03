@@ -20,7 +20,7 @@ def run_worker(worker):
     worker.log_signal.connect(logs.append)
     worker.progress_signal.connect(progress.append)
     worker.result_signal.connect(results.append)
-    worker.finished_signal.connect(lambda success, message: finished.append((success, message)))
+    worker.finished_signal.connect(lambda success, key, params: finished.append((success, key, params)))
 
     worker.run()
 
@@ -296,7 +296,7 @@ def test_calculation_worker_monodisperse_mass_concentration_uses_path_length(mon
 
     out = run_worker(ms.CalculationWorker(mono_params()))
 
-    assert out.finished == (True, "Расчет успешно завершен.")
+    assert out.finished == (True, "calc.status_success", {})
     result = out.results[-1]
     expected = expected_mono_values()
     assert result["avg_mass_kg"] == pytest.approx(expected.avg_mass_kg)
@@ -366,7 +366,7 @@ def test_calculation_worker_rejects_invalid_path_length(monkeypatch):
     out = run_worker(ms.CalculationWorker(mono_params(path_length_m=0.0)))
 
     assert out.finished[0] is False
-    assert "Длина трассы L должна быть > 0" in out.finished[1]
+    assert out.finished[1] == "err.path_length_positive"
 
 
 def inverse_params(input_mode, target_value, wl_mode="single", **overrides):
@@ -516,4 +516,4 @@ def test_optimization_worker_rejects_empty_spectrum(monkeypatch):
         )
     )
 
-    assert out.finished == (False, "Пустой спектр длин волн.")
+    assert out.finished == (False, "err.empty_wavelength_grid", {})

@@ -159,7 +159,7 @@ class CalculationWorker(QThread):
     log_signal = Signal(str)
     progress_signal = Signal(int)
     result_signal = Signal(dict)
-    finished_signal = Signal(bool, str)
+    finished_signal = Signal(bool, str, object)
 
     def __init__(self, params):
         super().__init__()
@@ -179,7 +179,7 @@ class CalculationWorker(QThread):
             wl_min, wl_max, wl_step = p["wl_range"]
             wavelengths = make_wavelengths(wl_min, wl_max, wl_step)
             if wavelengths.size == 0:
-                raise ValueError("Пустая сетка длин волн.")
+                raise MieCoreError("err.empty_wavelength_grid")
 
             actual_step = (wl_max - wl_min) / (wavelengths.size - 1) if wavelengths.size > 1 else wl_step
             self.log_signal.emit(
@@ -193,7 +193,7 @@ class CalculationWorker(QThread):
             conc_value = float(p.get("conc_value", 0.01))
             path_length_m = float(p.get("path_length_m", 1.0))
             if not np.isfinite(path_length_m) or path_length_m <= 0:
-                raise ValueError("Длина трассы L должна быть > 0.")
+                raise MieCoreError("err.path_length_positive")
             self.log_signal.emit(f"Длина трассы: L={path_length_m:.4f} м")
 
             if is_monodisperse:
@@ -214,7 +214,7 @@ class CalculationWorker(QThread):
 
                 for i, lam_um in enumerate(wavelengths):
                     if self.is_aborted:
-                        self.finished_signal.emit(False, "Остановлено пользователем.")
+                        self.finished_signal.emit(False, "calc.status_aborted", {})
                         return
 
                     lam_nm = lam_um * 1000.0
@@ -233,8 +233,11 @@ class CalculationWorker(QThread):
                         c_ext_total_mix += float(num_fraction) * c_ext_um2
 
                     if mixture_lost_weight > 0.02:
-                        msg = f"Критический сбой Mie на {lam_um:.3f} мкм. Потеряно {mixture_lost_weight*100:.1f}% числовой доли смеси."
-                        self.finished_signal.emit(False, msg)
+                        self.finished_signal.emit(
+                            False,
+                            "calc.err_mie_mono",
+                            {"lam_um": lam_um, "lost_pct": mixture_lost_weight * 100},
+                        )
                         return
 
                     row = make_forward_row(lam_um, c_ext_total_mix, c_ext_parts, num_conc, mass_conc_g, path_length_m)
@@ -266,7 +269,7 @@ class CalculationWorker(QThread):
                         "avg_mass_kg": avg_mass_mixture,
                     }
                 )
-                self.finished_signal.emit(True, "Расчет успешно завершен.")
+                self.finished_signal.emit(True, "calc.status_success", {})
 
             else:
                 d_min_um = max(p["d_range"][0], 1e-3)
@@ -284,7 +287,7 @@ class CalculationWorker(QThread):
                     pdf_values = custom_pdf(diameters_um, c_A, c_mu, c_sigma)
                     mass_numerical = trapz(pdf_values, diameters_um)
                     if not np.isfinite(mass_numerical) or mass_numerical <= 1e-12:
-                        raise ValueError("Интеграл PDF некорректен (<=0 или NaN).")
+                        raise MieCoreError("err.pdf_integral_invalid")
 
                     d_geom_mean = np.exp(c_mu)
                     d_mode_um = np.exp(c_mu - c_sigma**2)
@@ -306,7 +309,7 @@ class CalculationWorker(QThread):
                     pdf_values = lognormal_pdf(diameters_um, dg_um, sigma_g)
                     mass_numerical = trapz(pdf_values, diameters_um)
                     if not np.isfinite(mass_numerical) or mass_numerical <= 1e-12:
-                        raise ValueError("Интеграл PDF некорректен (<=0 или NaN).")
+                        raise MieCoreError("err.pdf_integral_invalid")
 
                     shape_param = np.log(sigma_g)
                     cdf_max = lognormal_cdf(d_max_um, dg_um, sigma_g)
@@ -347,7 +350,7 @@ class CalculationWorker(QThread):
 
                 for i, lam_um in enumerate(wavelengths):
                     if self.is_aborted:
-                        self.finished_signal.emit(False, "Остановлено пользователем.")
+                        self.finished_signal.emit(False, "calc.status_aborted", {})
                         return
 
                     lam_nm = lam_um * 1000.0
@@ -378,8 +381,11 @@ class CalculationWorker(QThread):
                             mixture_lost_weight += float(num_fraction) * w_lost_mat
 
                     if mixture_lost_weight > 0.02:
-                        msg = f"Критический сбой Mie на {lam_um:.3f} мкм. Потеряно {mixture_lost_weight*100:.1f}% веса распределения."
-                        self.finished_signal.emit(False, msg)
+                        self.finished_signal.emit(
+                            False,
+                            "calc.err_mie_distribution",
+                            {"lam_um": lam_um, "lost_pct": mixture_lost_weight * 100},
+                        )
                         return
 
                     row = make_forward_row(lam_um, c_ext_total_mix, c_ext_parts, num_conc, mass_conc_g, path_length_m)
@@ -411,20 +417,20 @@ class CalculationWorker(QThread):
                         "avg_mass_kg": avg_mass_mixture,
                     }
                 )
-                self.finished_signal.emit(True, "Расчет успешно завершен.")
+                self.finished_signal.emit(True, "calc.status_success", {})
 
         except MieCoreError as exc:
-            self.finished_signal.emit(False, exc.code)
+            self.finished_signal.emit(False, exc.code, exc.params)
         except Exception:
             err_msg = traceback.format_exc()
-            self.finished_signal.emit(False, f"Критическая ошибка:\n{err_msg}")
+            self.finished_signal.emit(False, "err.critical", {"traceback": err_msg})
 
 
 class InverseWorker(QThread):
     log_signal = Signal(str)
     progress_signal = Signal(int)
     result_signal = Signal(dict)
-    finished_signal = Signal(bool, str)
+    finished_signal = Signal(bool, str, object)
 
     def __init__(self, params):
         super().__init__()
@@ -446,7 +452,7 @@ class InverseWorker(QThread):
                 wl_min, wl_max, wl_step = p["wl_range"]
                 wavelengths = make_wavelengths(wl_min, wl_max, wl_step)
                 if wavelengths.size == 0:
-                    raise ValueError("Пустая сетка длин волн.")
+                    raise MieCoreError("err.empty_wavelength_grid")
                 actual_wl_step = (wl_max - wl_min) / (wavelengths.size - 1) if wavelengths.size > 1 else wl_step
             else:
                 lam_um = float(p["lambda_um"])
@@ -456,7 +462,7 @@ class InverseWorker(QThread):
             target_value = float(p["target_value"])
             path_length_m = float(p.get("path_length_m", 1.0))
             if not np.isfinite(path_length_m) or path_length_m <= 0:
-                raise ValueError("Длина трассы L должна быть > 0.")
+                raise MieCoreError("err.path_length_positive")
 
             use_avg_spectrum = wavelengths.size > 1
             metric_label = inverse_metric_label(input_mode, use_avg_spectrum)
@@ -520,7 +526,7 @@ class InverseWorker(QThread):
 
             for i, D_um in enumerate(diameters_um):
                 if self.is_aborted:
-                    self.finished_signal.emit(False, "Остановлено пользователем.")
+                    self.finished_signal.emit(False, "calc.status_aborted", {})
                     return
 
                 mec_values[i] = compute_inverse_metric(D_um)
@@ -603,7 +609,7 @@ class InverseWorker(QThread):
 
             for idx, (i, change_type) in enumerate(sign_changes):
                 if self.is_aborted:
-                    self.finished_signal.emit(False, "Остановлено пользователем.")
+                    self.finished_signal.emit(False, "calc.status_aborted", {})
                     return
 
                 try:
@@ -737,20 +743,20 @@ class InverseWorker(QThread):
             })
 
             self.progress_signal.emit(100)
-            self.finished_signal.emit(True, f"Обратная задача завершена. Найдено решений: {len(solutions)}")
+            self.finished_signal.emit(True, "inverse.status_finished", {"count": len(solutions)})
 
         except MieCoreError as exc:
-            self.finished_signal.emit(False, exc.code)
+            self.finished_signal.emit(False, exc.code, exc.params)
         except Exception:
             err_msg = traceback.format_exc()
-            self.finished_signal.emit(False, f"Критическая ошибка:\n{err_msg}")
+            self.finished_signal.emit(False, "err.critical", {"traceback": err_msg})
 
 
 class OptimizationWorker(QThread):
     log_signal = Signal(str)
     progress_signal = Signal(int)
     result_signal = Signal(dict)
-    finished_signal = Signal(bool, str)
+    finished_signal = Signal(bool, str, object)
 
     def __init__(self, params):
         super().__init__()
@@ -771,11 +777,11 @@ class OptimizationWorker(QThread):
             wavelengths = make_wavelengths(wl_min, wl_max, wl_step)
             n_wl = len(wavelengths)
             if n_wl == 0:
-                self.finished_signal.emit(False, "Пустой спектр длин волн.")
+                self.finished_signal.emit(False, "err.empty_wavelength_grid", {})
                 return
             path_length_m = float(p.get("path_length_m", 1.0))
             if not np.isfinite(path_length_m) or path_length_m <= 0:
-                raise ValueError("Длина трассы L должна быть > 0.")
+                raise MieCoreError("err.path_length_positive")
 
             D_scan_min = p["D_scan_min"]
             D_scan_max = p["D_scan_max"]
@@ -809,7 +815,7 @@ class OptimizationWorker(QThread):
 
             for i, D_um in enumerate(D_scan):
                 if self.is_aborted:
-                    self.finished_signal.emit(False, "Остановлено пользователем.")
+                    self.finished_signal.emit(False, "calc.status_aborted", {})
                     return
                 for j, lam_um in enumerate(wavelengths):
                     mec_map[i, j] = compute_mec_for_d(D_um, fractions, rho_avg, lam_um)
@@ -856,7 +862,7 @@ class OptimizationWorker(QThread):
 
             for i, dm in enumerate(dmin_grid):
                 if self.is_aborted:
-                    self.finished_signal.emit(False, "Остановлено пользователем.")
+                    self.finished_signal.emit(False, "calc.status_aborted", {})
                     return
                 for j, dx in enumerate(dmax_grid):
                     done_w += 1
@@ -959,7 +965,7 @@ class OptimizationWorker(QThread):
             )
 
             if self.is_aborted:
-                self.finished_signal.emit(False, "Остановлено пользователем.")
+                self.finished_signal.emit(False, "calc.status_aborted", {})
                 return
 
             if mode == OPT_WINDOW_ONLY:
@@ -1019,13 +1025,17 @@ class OptimizationWorker(QThread):
             })
 
             self.progress_signal.emit(100)
-            self.finished_signal.emit(True, f"Оптимизация завершена. (MEC·L)_mean={mec_l_mean:.4e}, (MEC·L)_min={mec_l_min:.4e}")
+            self.finished_signal.emit(
+                True,
+                "optim.status_finished",
+                {"mec_l_mean": mec_l_mean, "mec_l_min": mec_l_min},
+            )
 
         except MieCoreError as exc:
-            self.finished_signal.emit(False, exc.code)
+            self.finished_signal.emit(False, exc.code, exc.params)
         except Exception:
             err_msg = traceback.format_exc()
-            self.finished_signal.emit(False, f"Критическая ошибка:\n{err_msg}")
+            self.finished_signal.emit(False, "err.critical", {"traceback": err_msg})
 
 
 class MainWindow(QMainWindow):
@@ -1121,6 +1131,10 @@ class MainWindow(QMainWindow):
         for code, checkbox in self._material_checkboxes:
             checkbox.setText(material_label(code))
         self.lbl_st.setText(t("status.ready"))
+
+    def _message_from_key(self, key: str, params: object | None = None) -> str:
+        kwargs = params if isinstance(params, dict) else {}
+        return t(key, **kwargs)
 
     def _build_forward_tab(self, tab):
         outer = QVBoxLayout(tab)
@@ -1747,7 +1761,8 @@ class MainWindow(QMainWindow):
         self._opt_annot.set_visible(True)
         self.opt_canvas.draw_idle()
 
-    def on_optim_finish(self, success, message):
+    def on_optim_finish(self, success, key, params):
+        message = self._message_from_key(key, params)
         self.btn_opt_run.setEnabled(True)
         self.btn_opt_stop.setEnabled(False)
         self.lbl_st.setText(message)
@@ -1758,7 +1773,7 @@ class MainWindow(QMainWindow):
         else:
             self.pbar.setValue(0)
             self.log_msg(f"\n!!! {message} !!!")
-            if "Критическая ошибка" in message:
+            if key == "err.critical":
                 QMessageBox.critical(self, "Ошибка", message)
             else:
                 QMessageBox.warning(self, "Остановка", message)
@@ -2014,7 +2029,8 @@ class MainWindow(QMainWindow):
             self.worker.stop()
             self.lbl_st.setText("Прерывание...")
 
-    def on_finish(self, success, message):
+    def on_finish(self, success, key, params):
+        message = self._message_from_key(key, params)
         self.btn_run.setEnabled(True)
         self.btn_stop.setEnabled(False)
         self.lbl_st.setText(message)
@@ -2025,7 +2041,7 @@ class MainWindow(QMainWindow):
         else:
             self.pbar.setValue(0)
             self.log_msg(f"\n!!! {message} !!!")
-            if "Критическая ошибка" in message:
+            if key == "err.critical":
                 QMessageBox.critical(self, "Ошибка", message)
             else:
                 QMessageBox.warning(self, "Остановка", message)
@@ -2146,7 +2162,8 @@ class MainWindow(QMainWindow):
             self.inverse_worker.stop()
             self.lbl_st.setText("Прерывание...")
 
-    def on_inverse_finish(self, success, message):
+    def on_inverse_finish(self, success, key, params):
+        message = self._message_from_key(key, params)
         self.btn_inv_run.setEnabled(True)
         self.btn_inv_stop.setEnabled(False)
         self.lbl_st.setText(message)
@@ -2157,7 +2174,7 @@ class MainWindow(QMainWindow):
         else:
             self.pbar.setValue(0)
             self.log_msg(f"\n!!! {message} !!!")
-            if "Критическая ошибка" in message:
+            if key == "err.critical":
                 QMessageBox.critical(self, "Ошибка", message)
             else:
                 QMessageBox.warning(self, "Остановка", message)
