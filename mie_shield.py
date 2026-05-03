@@ -20,7 +20,7 @@ import scipy.optimize
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from PySide6.QtCore import Qt, QThread, QLocale, Signal
-from PySide6.QtGui import QFont, QIcon
+from PySide6.QtGui import QAction, QActionGroup, QFont, QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -45,6 +45,9 @@ from PySide6.QtWidgets import (
 
 APP_ID = "com.local.MieShield"
 APP_NAME = "MieShield"
+
+from mie_i18n import i18n, t
+from mie_i18n_strings import LANGUAGE_NAMES, SUPPORTED_LANGUAGES
 
 
 def _resource_path(name: str) -> Path:
@@ -1017,7 +1020,7 @@ class OptimizationWorker(QThread):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Mie Extinction Calculator (Alpha + MEC)")
+        self.setWindowTitle(t("app.title"))
         self.setWindowIcon(_application_icon())
         self.resize(1250, 950)
         self.last_results = None
@@ -1029,6 +1032,10 @@ class MainWindow(QMainWindow):
         self._heatmap_data = None
         self._window_heatmap_data = None
         self._optim_marker = None
+        self._language_menu = None
+        self._language_actions = {}
+
+        self._build_language_menu()
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -1042,17 +1049,17 @@ class MainWindow(QMainWindow):
         self.tabs = QTabWidget()
         left.addWidget(self.tabs)
 
-        tab_forward = QWidget()
-        self.tabs.addTab(tab_forward, "Прямая задача")
-        self._build_forward_tab(tab_forward)
+        self.tab_forward = QWidget()
+        self.tabs.addTab(self.tab_forward, "")
+        self._build_forward_tab(self.tab_forward)
 
-        tab_inverse = QWidget()
-        self.tabs.addTab(tab_inverse, "Обратная задача")
-        self._build_inverse_tab(tab_inverse)
+        self.tab_inverse = QWidget()
+        self.tabs.addTab(self.tab_inverse, "")
+        self._build_inverse_tab(self.tab_inverse)
 
-        tab_optim = QWidget()
-        self.tabs.addTab(tab_optim, "Оптимизация")
-        self._build_optim_tab(tab_optim)
+        self.tab_optim = QWidget()
+        self.tabs.addTab(self.tab_optim, "")
+        self._build_optim_tab(self.tab_optim)
 
         # Matplotlib canvas for optimization heatmaps (in the right panel)
         self.opt_figure = Figure(figsize=(10, 4))
@@ -1070,10 +1077,36 @@ class MainWindow(QMainWindow):
         self.pbar = QProgressBar()
         right.addWidget(self.pbar)
 
-        self.lbl_st = QLabel("Система готова.")
+        self.lbl_st = QLabel("")
         right.addWidget(self.lbl_st)
 
         self.tabs.currentChanged.connect(self._on_tab_changed)
+        i18n.language_changed.connect(self._retranslate)
+        self._retranslate()
+
+    def _build_language_menu(self):
+        self._language_menu = self.menuBar().addMenu("")
+        group = QActionGroup(self)
+        group.setExclusive(True)
+        for code in SUPPORTED_LANGUAGES:
+            action = QAction(LANGUAGE_NAMES[code], self)
+            action.setCheckable(True)
+            action.triggered.connect(lambda _checked=False, lang=code: i18n.set_language(lang))
+            group.addAction(action)
+            self._language_menu.addAction(action)
+            self._language_actions[code] = action
+
+    def _retranslate(self):
+        self.setWindowTitle(t("app.title"))
+        if self._language_menu is not None:
+            self._language_menu.setTitle(t("menu.language"))
+        for code, action in self._language_actions.items():
+            action.setText(LANGUAGE_NAMES[code])
+            action.setChecked(code == i18n.language)
+        self.tabs.setTabText(self.tabs.indexOf(self.tab_forward), t("tab.forward"))
+        self.tabs.setTabText(self.tabs.indexOf(self.tab_inverse), t("tab.inverse"))
+        self.tabs.setTabText(self.tabs.indexOf(self.tab_optim), t("tab.optim"))
+        self.lbl_st.setText(t("status.ready"))
 
     def _build_forward_tab(self, tab):
         outer = QVBoxLayout(tab)
@@ -1472,7 +1505,7 @@ class MainWindow(QMainWindow):
             w.setEnabled(is_full)
 
     def _on_tab_changed(self, index):
-        is_optim = (self.tabs.tabText(index) == "Оптимизация")
+        is_optim = (self.tabs.widget(index) is self.tab_optim)
         self.opt_canvas.setVisible(is_optim)
 
     def start_optim(self):
@@ -2272,9 +2305,11 @@ class MainWindow(QMainWindow):
 
 if __name__ == "__main__":
     _set_windows_app_user_model_id()
+    QApplication.setOrganizationName(APP_NAME)
     QApplication.setApplicationName(APP_NAME)
     QApplication.setDesktopFileName(APP_NAME)
     app = QApplication(sys.argv)
+    i18n.load_from_settings()
     app.setWindowIcon(_application_icon())
     app.setStyle("Fusion")
     w = MainWindow()
