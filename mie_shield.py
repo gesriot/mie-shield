@@ -832,7 +832,7 @@ class OptimizationWorker(QThread):
                 "path_score_map": (mec_map * path_length_m).tolist(),
                 "path_length_m": path_length_m,
                 "metric_label": "MEC·L",
-                "metric_units": "м³/г",
+                "metric_units": "m^3/g",
             })
 
             self.log_signal.emit(f"Карта MEC построена: {N_D_scan} x {n_wl}")
@@ -895,7 +895,7 @@ class OptimizationWorker(QThread):
                 "criterion": criterion,
                 "path_length_m": path_length_m,
                 "metric_label": "MEC·L",
-                "metric_units": "м³/г",
+                "metric_units": "m^3/g",
             })
             self.log_signal.emit(f"Карта MEC·L(D_min, D_max) построена: {N_window_grid} x {N_window_grid}")
 
@@ -1058,6 +1058,8 @@ class MainWindow(QMainWindow):
         self._material_checkboxes = []
         self._text_bindings = []
         self._combo_bindings = []
+        self._status_key = "status.ready"
+        self._status_params = {}
 
         self._build_language_menu()
 
@@ -1147,11 +1149,52 @@ class MainWindow(QMainWindow):
             self._on_conc_mode_changed()
         if hasattr(self, "inv_input_mode"):
             self._on_inv_mode_changed()
-        self.lbl_st.setText(t("status.ready"))
+        if hasattr(self, "lbl_st"):
+            self.lbl_st.setText(t(self._status_key, **self._status_params))
 
     def _message_from_key(self, key: str, params: object | None = None) -> str:
         kwargs = params if isinstance(params, dict) else {}
         return t(key, **kwargs)
+
+    def _set_status(self, key: str, **kwargs: object) -> None:
+        self._status_key = key
+        self._status_params = kwargs
+        if hasattr(self, "lbl_st"):
+            self.lbl_st.setText(t(key, **kwargs))
+
+    def _warn(self, key: str, **kwargs: object) -> None:
+        QMessageBox.warning(self, t("dialog.error"), t(key, **kwargs))
+
+    def _info_text(self, title_key: str, message: str) -> None:
+        QMessageBox.information(self, t(title_key), message)
+
+    def _warn_text(self, title_key: str, message: str) -> None:
+        QMessageBox.warning(self, t(title_key), message)
+
+    def _critical_text(self, title_key: str, message: str) -> None:
+        QMessageBox.critical(self, t(title_key), message)
+
+    def _saved(self) -> None:
+        QMessageBox.information(self, t("dialog.ok"), t("dialog.saved"))
+
+    def _ask_yes_no(self, title_key: str, body_key: str, **kwargs: object) -> bool:
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Question)
+        box.setWindowTitle(t(title_key))
+        box.setText(t(body_key, **kwargs))
+        yes_button = box.addButton(t("button.yes"), QMessageBox.YesRole)
+        no_button = box.addButton(t("button.no"), QMessageBox.NoRole)
+        box.setDefaultButton(no_button)
+        box.exec()
+        return box.clickedButton() is yes_button
+
+    def _unit_label(self, unit: str) -> str:
+        return {
+            "м²/г": t("unit.m2_per_g").strip(),
+            "м³/г": t("unit.m3_per_g").strip(),
+            "m^2/g": t("unit.m2_per_g").strip(),
+            "m^3/g": t("unit.m3_per_g").strip(),
+        }.get(unit, unit)
 
     def _bind_text(self, widget, method_name: str, key: str):
         self._text_bindings.append((widget, method_name, key))
@@ -1622,7 +1665,7 @@ class MainWindow(QMainWindow):
                 fracs[c] = float(sp.value())
                 tot += float(sp.value())
         if not fracs or tot <= 0:
-            QMessageBox.warning(self, "Ошибка", "Не выбран состав смеси.")
+            self._warn("v.no_mixture")
             return
         norm_fracs = {k: v / tot for k, v in fracs.items()}
 
@@ -1630,17 +1673,17 @@ class MainWindow(QMainWindow):
         wl_max = float(self.opt_wl_max.value())
         wl_step = float(self.opt_wl_step.value())
         if wl_min >= wl_max or wl_step <= 0:
-            QMessageBox.warning(self, "Ошибка", "Неверные параметры спектра.")
+            self._warn("v.invalid_spectrum")
             return
         path_length_m = float(self.opt_path_length.value())
         if path_length_m <= 0 or (not np.isfinite(path_length_m)):
-            QMessageBox.warning(self, "Ошибка", "Длина трассы L должна быть > 0.")
+            self._warn("v.path_length_positive")
             return
 
         d_scan_min = float(self.opt_d_scan_min.value())
         d_scan_max = float(self.opt_d_scan_max.value())
         if d_scan_min >= d_scan_max:
-            QMessageBox.warning(self, "Ошибка", "D_scan_min >= D_scan_max.")
+            self._warn("v.d_scan_range")
             return
 
         opt_mode = self._combo_data(self.opt_mode, OPT_WINDOW_ONLY)
@@ -1679,14 +1722,14 @@ class MainWindow(QMainWindow):
         self.btn_opt_run.setEnabled(False)
         self.btn_opt_stop.setEnabled(True)
         self.btn_opt_save.setEnabled(False)
-        self.lbl_st.setText("Оптимизация...")
+        self._set_status("status.optimizing")
         self.pbar.setValue(0)
         self.optim_worker.start()
 
     def stop_optim(self):
         if self.optim_worker:
             self.optim_worker.stop()
-            self.lbl_st.setText("Прерывание...")
+            self._set_status("status.interrupting")
 
     def on_optim_result(self, res):
         rtype = res.get("type")
@@ -1733,14 +1776,14 @@ class MainWindow(QMainWindow):
             wavelengths = np.array(res["wavelengths"])
             metric_map = np.array(res.get("path_score_map", res["mec_map"]))
             metric_label = res.get("metric_label", "MEC")
-            metric_units = res.get("metric_units", "м²/г")
+            metric_units = self._unit_label(res.get("metric_units", "м²/г"))
             ax1 = self.opt_figure.add_subplot(1, ncols, col)
             col += 1
             mec_plot = np.where(metric_map > 0, metric_map, np.nan)
             im1 = ax1.pcolormesh(wavelengths, D_scan, mec_plot, shading='auto', cmap='hot')
             ax1.set_yscale('log')
-            ax1.set_xlabel('λ (мкм)')
-            ax1.set_ylabel('D (мкм)')
+            ax1.set_xlabel(t("axis.lambda_um"))
+            ax1.set_ylabel(t("axis.d_um"))
             ax1.set_title(f'{metric_label}(D, λ) {metric_units}')
             self.opt_figure.colorbar(im1, ax=ax1)
             self._opt_ax_left = ax1
@@ -1752,15 +1795,15 @@ class MainWindow(QMainWindow):
             dmax_grid = np.array(res_w["dmax_grid"])
             window_mec = np.array(res_w["window_mec"])
             metric_label = res_w.get("metric_label", "MEC")
-            metric_units = res_w.get("metric_units", "м²/г")
+            metric_units = self._unit_label(res_w.get("metric_units", "м²/г"))
             crit_label = "mean" if res_w["criterion"] == OPT_MEAN else "min"
 
             ax2 = self.opt_figure.add_subplot(1, ncols, col)
             im2 = ax2.pcolormesh(dmax_grid, dmin_grid, window_mec, shading='auto', cmap='viridis')
             ax2.set_xscale('log')
             ax2.set_yscale('log')
-            ax2.set_xlabel('D_max (мкм)')
-            ax2.set_ylabel('D_min (мкм)')
+            ax2.set_xlabel(t("axis.d_max_um"))
+            ax2.set_ylabel(t("axis.d_min_um"))
             ax2.set_title(f'{metric_label}_{crit_label}(D_min, D_max)')
             self.opt_figure.colorbar(im2, ax=ax2)
             self._opt_ax_right = ax2
@@ -1801,6 +1844,7 @@ class MainWindow(QMainWindow):
 
         if event.inaxes is self._opt_ax_left:
             wavelengths, D_scan, mec_map, metric_label, metric_units = self._opt_left_data
+            unit_um = t("unit.um").strip()
             # Find nearest indices
             j = np.searchsorted(wavelengths, x)
             j = np.clip(j, 0, len(wavelengths) - 1)
@@ -1808,9 +1852,9 @@ class MainWindow(QMainWindow):
             i = np.clip(i, 0, len(D_scan) - 1)
             mec_val = mec_map[i, j]
             if np.isnan(mec_val):
-                txt = f'λ={wavelengths[j]:.2f} мкм  D={D_scan[i]:.4f} мкм  {metric_label}=NaN'
+                txt = f'λ={wavelengths[j]:.2f} {unit_um}  D={D_scan[i]:.4f} {unit_um}  {metric_label}=NaN'
             else:
-                txt = f'λ={wavelengths[j]:.2f} мкм  D={D_scan[i]:.4f} мкм  {metric_label}={mec_val:.4e} {metric_units}'
+                txt = f'λ={wavelengths[j]:.2f} {unit_um}  D={D_scan[i]:.4f} {unit_um}  {metric_label}={mec_val:.4e} {metric_units}'
         elif event.inaxes is self._opt_ax_right:
             dmax_grid, dmin_grid, window_mec, metric_label, metric_units = self._opt_right_data
             # Log-space search for log-scale axes
@@ -1837,23 +1881,23 @@ class MainWindow(QMainWindow):
         message = self._message_from_key(key, params)
         self.btn_opt_run.setEnabled(True)
         self.btn_opt_stop.setEnabled(False)
-        self.lbl_st.setText(message)
+        self._set_status(key, **(params if isinstance(params, dict) else {}))
 
         if success:
             self.pbar.setValue(100)
-            QMessageBox.information(self, "Готово", message)
+            self._info_text("dialog.done", message)
         else:
             self.pbar.setValue(0)
             self.log_msg(f"\n!!! {message} !!!")
             if key == "err.critical":
-                QMessageBox.critical(self, "Ошибка", message)
+                self._critical_text("dialog.error", message)
             else:
-                QMessageBox.warning(self, "Остановка", message)
+                self._warn_text("dialog.stopped", message)
 
     def save_optim(self):
         if not self.last_optim_results:
             return
-        fn, _ = QFileDialog.getSaveFileName(self, "Экспорт", "optim_results.txt", "Text (*.txt)")
+        fn, _ = QFileDialog.getSaveFileName(self, t("dialog.export"), "optim_results.txt", "Text (*.txt)")
         if not fn:
             return
         try:
@@ -1875,9 +1919,9 @@ class MainWindow(QMainWindow):
                 mec_l_spectrum = res.get("mec_l_spectrum", res["mec_spectrum"])
                 for wl, mec, mec_l in zip(res["wavelengths"], res["mec_spectrum"], mec_l_spectrum):
                     f.write(f"{wl:10.4f} | {mec:15.6e} | {mec_l:15.6e}\n")
-            QMessageBox.information(self, "OK", "Сохранено.")
+            self._saved()
         except Exception as e:
-            QMessageBox.critical(self, "Error", str(e))
+            self._critical_text("dialog.error", str(e))
 
     def _spin_ndec(self, val, minv, maxv, dec=1, step=0.1):
         s = QDoubleSpinBox()
@@ -1983,7 +2027,7 @@ class MainWindow(QMainWindow):
                 tot += float(sp.value())
 
         if not fracs or tot <= 0:
-            QMessageBox.warning(self, "Ошибка", "Не выбран состав смеси.")
+            self._warn("v.no_mixture")
             return
 
         dist_mode = self._combo_data(self.dist_type_combo, DIST_LOGNORMAL)
@@ -1993,22 +2037,22 @@ class MainWindow(QMainWindow):
         if is_monodisperse:
             d_mono = float(self.s_d_mono.value())
             if d_mono <= 0:
-                QMessageBox.warning(self, "Ошибка", "Диаметр должен быть > 0.")
+                self._warn("v.diameter_positive")
                 return
         else:
             dmin, dmax = float(self.s_dmin.value()), float(self.s_dmax.value())
             if dmin >= dmax:
-                QMessageBox.warning(self, "Ошибка", "D_min >= D_max.")
+                self._warn("v.d_range_order")
                 return
 
         wlmin, wlmax = float(self.s_wl_min.value()), float(self.s_wl_max.value())
         step = float(self.s_wl_step.value())
 
         if wlmin >= wlmax:
-            QMessageBox.warning(self, "Ошибка", "Lambda_min >= Lambda_max.")
+            self._warn("v.lambda_range_order")
             return
         if step <= 0:
-            QMessageBox.warning(self, "Ошибка", "Шаг по длине волны должен быть > 0.")
+            self._warn("v.wavelength_step_positive")
             return
 
         wls = make_wavelengths(wlmin, wlmax, step)
@@ -2020,13 +2064,7 @@ class MainWindow(QMainWindow):
             total_ops = int(len(wls) * N_D * len(fracs))
 
         if total_ops > 2000000:
-            res = QMessageBox.question(
-                self,
-                "Подтверждение",
-                f"Расчет потребует ~{total_ops/1e6:.1f} млн вызовов MieQ.\nПродолжить?",
-                QMessageBox.Yes | QMessageBox.No,
-            )
-            if res != QMessageBox.Yes:
+            if not self._ask_yes_no("dialog.confirm", "v.large_calc_confirm", millions=total_ops / 1e6):
                 return
 
         norm_fracs = {k: v / tot for k, v in fracs.items()}
@@ -2034,11 +2072,11 @@ class MainWindow(QMainWindow):
         conc_mode = self._combo_data(self.conc_mode, CONC_MASS)
         conc_value = float(self.conc_value.value())
         if conc_value <= 0 or (not np.isfinite(conc_value)):
-            QMessageBox.warning(self, "Ошибка", "Концентрация должна быть > 0.")
+            self._warn("v.conc_positive")
             return
         path_length_m = float(self.path_length.value())
         if path_length_m <= 0 or (not np.isfinite(path_length_m)):
-            QMessageBox.warning(self, "Ошибка", "Длина трассы L должна быть > 0.")
+            self._warn("v.path_length_positive")
             return
 
         if is_monodisperse:
@@ -2081,7 +2119,7 @@ class MainWindow(QMainWindow):
             }
 
         self.log.clear()
-        self.log_msg("=== ЗАПУСК НОВОГО РАСЧЕТА ===")
+        self.log_msg(t("log.calc_start"))
 
         self.worker = CalculationWorker(p)
         self.worker.log_signal.connect(self.log_msg)
@@ -2092,31 +2130,31 @@ class MainWindow(QMainWindow):
         self.btn_run.setEnabled(False)
         self.btn_stop.setEnabled(True)
         self.btn_save.setEnabled(False)
-        self.lbl_st.setText("Идет расчет...")
+        self._set_status("status.calculating")
         self.pbar.setValue(0)
         self.worker.start()
 
     def stop(self):
         if self.worker:
             self.worker.stop()
-            self.lbl_st.setText("Прерывание...")
+            self._set_status("status.interrupting")
 
     def on_finish(self, success, key, params):
         message = self._message_from_key(key, params)
         self.btn_run.setEnabled(True)
         self.btn_stop.setEnabled(False)
-        self.lbl_st.setText(message)
+        self._set_status(key, **(params if isinstance(params, dict) else {}))
 
         if success:
             self.pbar.setValue(100)
-            QMessageBox.information(self, "Готово", message)
+            self._info_text("dialog.done", message)
         else:
             self.pbar.setValue(0)
             self.log_msg(f"\n!!! {message} !!!")
             if key == "err.critical":
-                QMessageBox.critical(self, "Ошибка", message)
+                self._critical_text("dialog.error", message)
             else:
-                QMessageBox.warning(self, "Остановка", message)
+                self._warn_text("dialog.stopped", message)
 
     def on_result(self, res):
         self.last_results = res
@@ -2134,7 +2172,7 @@ class MainWindow(QMainWindow):
                 tot += float(sp.value())
 
         if not fracs or tot <= 0:
-            QMessageBox.warning(self, "Ошибка", "Не выбран состав смеси.")
+            self._warn("v.no_mixture")
             return
 
         norm_fracs = {k: v / tot for k, v in fracs.items()}
@@ -2146,17 +2184,17 @@ class MainWindow(QMainWindow):
             wl_max = float(self.inv_wl_max.value())
             wl_step = float(self.inv_wl_step.value())
             if wl_min >= wl_max or wl_step <= 0:
-                QMessageBox.warning(self, "Ошибка", "Неверные параметры диапазона λ.")
+                self._warn("v.inverse_lambda_range")
                 return
             inv_wavelengths = make_wavelengths(wl_min, wl_max, wl_step)
             if inv_wavelengths.size == 0:
-                QMessageBox.warning(self, "Ошибка", "Пустая сетка длин волн.")
+                self._warn("v.empty_wavelength_grid")
                 return
             lam_um = None
         else:
             lam_um = float(self.inv_lambda.value())
             if lam_um <= 0:
-                QMessageBox.warning(self, "Ошибка", "λ должна быть > 0.")
+                self._warn("v.lambda_positive")
                 return
             wl_min = wl_max = wl_step = None
             inv_wavelengths = np.array([lam_um], dtype=float)
@@ -2167,29 +2205,23 @@ class MainWindow(QMainWindow):
             inverse_uses_transmittance(input_mode)
             and target_value > 1.0
         ):
-            QMessageBox.warning(self, "Ошибка", "Целевое значение должно быть > 0, а для T не больше 1.")
+            self._warn("v.target_positive_transmittance")
             return
         path_length_m = float(self.inv_path_length.value())
         if path_length_m <= 0 or (not np.isfinite(path_length_m)):
-            QMessageBox.warning(self, "Ошибка", "Длина трассы L должна быть > 0.")
+            self._warn("v.path_length_positive")
             return
 
         d_min = float(self.inv_d_min.value())
         d_max = float(self.inv_d_max.value())
         if d_min >= d_max:
-            QMessageBox.warning(self, "Ошибка", "D_min >= D_max.")
+            self._warn("v.d_range_order")
             return
 
         n_scan = int(self.inv_n_scan.value())
         total_ops = int(n_scan * len(inv_wavelengths))
         if total_ops > 2000000:
-            res = QMessageBox.question(
-                self,
-                "Подтверждение",
-                f"Обратная задача потребует ~{total_ops/1e6:.1f} млн расчетов MEC.\nПродолжить?",
-                QMessageBox.Yes | QMessageBox.No,
-            )
-            if res != QMessageBox.Yes:
+            if not self._ask_yes_no("dialog.confirm", "v.large_inverse_confirm", millions=total_ops / 1e6):
                 return
 
         p = {
@@ -2210,7 +2242,7 @@ class MainWindow(QMainWindow):
         if inverse_requires_mass_conc(input_mode):
             mass_conc_g = float(self.inv_mass_conc.value())
             if mass_conc_g <= 0:
-                QMessageBox.warning(self, "Ошибка", "Массовая концентрация должна быть > 0.")
+                self._warn("v.mass_conc_positive")
                 return
             p["mass_conc_g"] = mass_conc_g
 
@@ -2225,31 +2257,31 @@ class MainWindow(QMainWindow):
         self.btn_inv_run.setEnabled(False)
         self.btn_inv_stop.setEnabled(True)
         self.btn_inv_save.setEnabled(False)
-        self.lbl_st.setText("Поиск D...")
+        self._set_status("status.searching_d")
         self.pbar.setValue(0)
         self.inverse_worker.start()
 
     def stop_inverse(self):
         if self.inverse_worker:
             self.inverse_worker.stop()
-            self.lbl_st.setText("Прерывание...")
+            self._set_status("status.interrupting")
 
     def on_inverse_finish(self, success, key, params):
         message = self._message_from_key(key, params)
         self.btn_inv_run.setEnabled(True)
         self.btn_inv_stop.setEnabled(False)
-        self.lbl_st.setText(message)
+        self._set_status(key, **(params if isinstance(params, dict) else {}))
 
         if success:
             self.pbar.setValue(100)
-            QMessageBox.information(self, "Готово", message)
+            self._info_text("dialog.done", message)
         else:
             self.pbar.setValue(0)
             self.log_msg(f"\n!!! {message} !!!")
             if key == "err.critical":
-                QMessageBox.critical(self, "Ошибка", message)
+                self._critical_text("dialog.error", message)
             else:
-                QMessageBox.warning(self, "Остановка", message)
+                self._warn_text("dialog.stopped", message)
 
     def on_inverse_result(self, res):
         self.last_inverse_results = res
@@ -2258,7 +2290,7 @@ class MainWindow(QMainWindow):
     def save(self):
         if not self.last_results:
             return
-        fn, _ = QFileDialog.getSaveFileName(self, "Экспорт", "results.txt", "Text (*.txt)")
+        fn, _ = QFileDialog.getSaveFileName(self, t("dialog.export"), "results.txt", "Text (*.txt)")
         if not fn:
             return
         try:
@@ -2323,14 +2355,14 @@ class MainWindow(QMainWindow):
                     f.write(avg_line + "\n")
                     f.write(f"T_eff=exp(-AVG tau): {summary['eff_transmittance']:.6e}\n")
 
-            QMessageBox.information(self, "OK", "Сохранено.")
+            self._saved()
         except Exception as e:
-            QMessageBox.critical(self, "Error", str(e))
+            self._critical_text("dialog.error", str(e))
 
     def save_inverse(self):
         if not self.last_inverse_results:
             return
-        fn, _ = QFileDialog.getSaveFileName(self, "Экспорт", "inverse_results.txt", "Text (*.txt)")
+        fn, _ = QFileDialog.getSaveFileName(self, t("dialog.export"), "inverse_results.txt", "Text (*.txt)")
         if not fn:
             return
         try:
@@ -2341,7 +2373,7 @@ class MainWindow(QMainWindow):
             scan_MEC = res["scan_MEC"]
             target_mec = res["target_mec"]
             metric_label = res.get("metric_label", "MEC")
-            metric_units = res.get("metric_units", "м²/г")
+            metric_units = self._unit_label(res.get("metric_units", "м²/г"))
             wavelengths = res.get("wavelengths", [])
             input_mode = p["input_mode"]
             use_avg_spectrum = p.get("wl_mode") == INV_WL_RANGE
@@ -2404,9 +2436,9 @@ class MainWindow(QMainWindow):
                 for i in range(0, len(scan_D), step):
                     f.write(f"{scan_D[i]:12.6f} | {scan_MEC[i]:18.6e}\n")
 
-            QMessageBox.information(self, "OK", "Сохранено.")
+            self._saved()
         except Exception as e:
-            QMessageBox.critical(self, "Error", str(e))
+            self._critical_text("dialog.error", str(e))
 
 
 if __name__ == "__main__":

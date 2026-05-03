@@ -470,7 +470,7 @@ def inverse_metric_label(input_mode: InverseInputMode, use_avg_spectrum: bool) -
 
 
 def inverse_metric_units(input_mode: InverseInputMode) -> str:
-    return "" if inverse_uses_transmittance(input_mode) else "м²/г"
+    return "" if inverse_uses_transmittance(input_mode) else "m^2/g"
 
 
 def inverse_solution_names(use_avg_spectrum: bool) -> tuple[str, str]:
