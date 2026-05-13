@@ -155,6 +155,24 @@ DEFAULTS = {
 }
 
 
+class _ScrollRoot(QWidget):
+    """Inner widget for QScrollArea that never forces horizontal expansion.
+
+    With setWidgetResizable(True), Qt sizes the inner widget to
+    max(viewport_width, widget.minimumSizeHint().width()).  Returning width=0
+    from minimumSizeHint ensures the widget is always exactly viewport_width,
+    so a fixed right_pad widget (placed alongside the content) stays visible
+    regardless of how wide the content's labels are (e.g. long Cyrillic text).
+    """
+    def minimumSizeHint(self):
+        sh = super().minimumSizeHint()
+        return sh.__class__(0, sh.height())
+
+    def sizeHint(self):
+        sh = super().sizeHint()
+        return sh.__class__(0, sh.height())
+
+
 class _DoubleSpinBox(QDoubleSpinBox):
     """QDoubleSpinBox that ignores wheel events unless the widget has focus.
 
@@ -1238,16 +1256,36 @@ class MainWindow(QMainWindow):
         layout.addRow(self._tr_label(key), widget)
 
     def _make_scroll_area(self) -> tuple:
-        """Return (QScrollArea, QWidget, QVBoxLayout) ready to use as a scrollable tab."""
+        """Return (QScrollArea, QWidget, QVBoxLayout) ready to use as a scrollable tab.
+
+        On macOS the system scrollbar is overlay-style and draws on top of the
+        viewport without reducing its width.  A permanent 20-px right spacer
+        widget is placed inside the scroll area's root so the overlay scrollbar
+        renders over empty space instead of input fields.  This works regardless
+        of locale: even with wide Cyrillic labels the content widget never
+        extends into the rightmost 20 px that the scrollbar occupies.
+        """
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        inner = QWidget()
-        scroll.setWidget(inner)
-        layout = QVBoxLayout(inner)
+
+        root = _ScrollRoot()
+        scroll.setWidget(root)
+        root_layout = QHBoxLayout(root)
+        root_layout.setContentsMargins(0, 0, 0, 0)
+        root_layout.setSpacing(0)
+
+        content = QWidget()
+        root_layout.addWidget(content, 1)
+
+        right_pad = QWidget()
+        right_pad.setFixedWidth(10)
+        root_layout.addWidget(right_pad, 0)
+
+        layout = QVBoxLayout(content)
         layout.setContentsMargins(9, 9, 9, 9)
-        return scroll, inner, layout
+        return scroll, content, layout
 
     def _add_combo_items(self, combo: QComboBox, items: list[tuple[str, object]]) -> None:
         for _key, data in items:
@@ -1346,6 +1384,7 @@ class MainWindow(QMainWindow):
             sp.setDecimals(2)
             sp.setSingleStep(1.0)
             sp.setSuffix("%")
+            sp.setMinimumWidth(76)
             sp.setAlignment(Qt.AlignRight)
             sp.setEnabled(False)
             if c in ["C", "Mg"]:
@@ -1496,6 +1535,7 @@ class MainWindow(QMainWindow):
             sp.setDecimals(2)
             sp.setSingleStep(1.0)
             sp.setSuffix("%")
+            sp.setMinimumWidth(76)
             sp.setAlignment(Qt.AlignRight)
             sp.setEnabled(False)
             if c == "C":
@@ -1560,6 +1600,7 @@ class MainWindow(QMainWindow):
             sp.setDecimals(2)
             sp.setSingleStep(1.0)
             sp.setSuffix("%")
+            sp.setMinimumWidth(76)
             sp.setAlignment(Qt.AlignRight)
             sp.setEnabled(False)
             if c == "C":
