@@ -18,5 +18,7 @@ The Linux archive contains a standalone `mie_shield.dist` folder with the `MieSh
 - Added DFPT-, handbook-, and Lorentz-reconstruction models for materials without complete open primary `n(lambda), k(lambda)` datasets.
 - Kept pure `ZrO2` as monoclinic baddeleyite and exposed cubic yttria-stabilized zirconia separately as `YSZ`.
 - Updated the release workflow so GitHub Releases automatically use `docs/release-notes-<tag>.md` for the selected tag.
+- Fixed scrollbars in all three tabs: content is now always reachable even with 26 materials listed; the vertical scrollbar no longer overlaps input fields.
+- Widened the controls panel (stretch ratio 2:3) and set a minimum tab width of 300 px so the UI remains comfortable at smaller window sizes.
 
 Some new materials are engineering-grade reconstructions rather than measured spectra. See `complex-refractive-indices.md` before using Quality-B or Quality-C entries for publication-grade calculations.

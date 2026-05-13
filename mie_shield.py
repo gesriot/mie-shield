@@ -155,6 +155,28 @@ DEFAULTS = {
 }
 
 
+class _DoubleSpinBox(QDoubleSpinBox):
+    """QDoubleSpinBox that ignores wheel events unless the widget has focus.
+
+    Prevents the spinbox from stealing scroll events from a parent QScrollArea
+    when the user hovers over it without clicking first.
+    """
+    def wheelEvent(self, event):
+        if self.hasFocus():
+            super().wheelEvent(event)
+        else:
+            event.ignore()
+
+
+class _IntSpinBox(QSpinBox):
+    """QSpinBox with the same wheel-guard as _DoubleSpinBox."""
+    def wheelEvent(self, event):
+        if self.hasFocus():
+            super().wheelEvent(event)
+        else:
+            event.ignore()
+
+
 class CalculationWorker(QThread):
     log_signal = Signal(str)
     progress_signal = Signal(int)
@@ -1068,11 +1090,12 @@ class MainWindow(QMainWindow):
         root = QHBoxLayout(central)
 
         left = QVBoxLayout()
-        root.addLayout(left, 1)
+        root.addLayout(left, 2)
         right = QVBoxLayout()
-        root.addLayout(right, 2)
+        root.addLayout(right, 3)
 
         self.tabs = QTabWidget()
+        self.tabs.setMinimumWidth(300)
         left.addWidget(self.tabs)
 
         self.tab_forward = QWidget()
@@ -1214,6 +1237,18 @@ class MainWindow(QMainWindow):
     def _add_tr_row(self, layout: QFormLayout, key: str, widget) -> None:
         layout.addRow(self._tr_label(key), widget)
 
+    def _make_scroll_area(self) -> tuple:
+        """Return (QScrollArea, QWidget, QVBoxLayout) ready to use as a scrollable tab."""
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        inner = QWidget()
+        scroll.setWidget(inner)
+        layout = QVBoxLayout(inner)
+        layout.setContentsMargins(9, 9, 9, 9)
+        return scroll, inner, layout
+
     def _add_combo_items(self, combo: QComboBox, items: list[tuple[str, object]]) -> None:
         for _key, data in items:
             combo.addItem("", data)
@@ -1222,13 +1257,8 @@ class MainWindow(QMainWindow):
     def _build_forward_tab(self, tab):
         outer = QVBoxLayout(tab)
         outer.setContentsMargins(0, 0, 0, 0)
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        inner = QWidget()
-        scroll.setWidget(inner)
+        scroll, _inner, layout = self._make_scroll_area()
         outer.addWidget(scroll)
-        layout = QVBoxLayout(inner)
 
         g1 = self._tr_groupbox("forward.group.particles")
         layout.addWidget(g1)
@@ -1257,7 +1287,7 @@ class MainWindow(QMainWindow):
         self.s_dmax = self._spin_ndec(DEFAULTS["D_MAX"], 0.001, 100, dec=2, step=0.01)
         self.s_dgm = self._spin_ndec(DEFAULTS["D_GEOMETRIC_MEAN"], 0.001, 100, dec=2, step=0.01)
         self.s_sigma = self._spin_ndec(DEFAULTS["SIGMA_GEOMETRIC"], 1.01, 10, dec=2, step=0.01)
-        self.s_points = QSpinBox()
+        self.s_points = _IntSpinBox()
         self.s_points.setRange(50, 10000)
         self.s_points.setValue(DEFAULTS["POINTS_D"])
 
@@ -1310,7 +1340,7 @@ class MainWindow(QMainWindow):
             h = QHBoxLayout()
             cb = QCheckBox("")
             self._material_checkboxes.append((c, cb))
-            sp = QDoubleSpinBox()
+            sp = _DoubleSpinBox()
             sp.setLocale(QLocale(QLocale.C))
             sp.setRange(0, 100)
             sp.setDecimals(2)
@@ -1340,7 +1370,7 @@ class MainWindow(QMainWindow):
             ],
         )
         self.conc_mode.setCurrentIndex(self.conc_mode.findData(CONC_MASS))
-        self.conc_value = QDoubleSpinBox()
+        self.conc_value = _DoubleSpinBox()
         self.conc_value.setLocale(QLocale(QLocale.C))
         self.conc_value.setRange(1e-30, 1e18)
         self.conc_value.setDecimals(2)
@@ -1370,10 +1400,11 @@ class MainWindow(QMainWindow):
         l3.addWidget(self.btn_stop)
         l3.addWidget(self.btn_save)
 
-        layout.addStretch()
-
     def _build_inverse_tab(self, tab):
-        layout = QVBoxLayout(tab)
+        outer = QVBoxLayout(tab)
+        outer.setContentsMargins(0, 0, 0, 0)
+        scroll, _inner, layout = self._make_scroll_area()
+        outer.addWidget(scroll)
 
         g_input = self._tr_groupbox("inverse.group.input")
         layout.addWidget(g_input)
@@ -1423,7 +1454,7 @@ class MainWindow(QMainWindow):
         self.inv_input_mode.currentTextChanged.connect(self._on_inv_mode_changed)
         self._add_tr_row(l_input, "label.input_type", self.inv_input_mode)
 
-        self.inv_target_value = QDoubleSpinBox()
+        self.inv_target_value = _DoubleSpinBox()
         self.inv_target_value.setLocale(QLocale(QLocale.C))
         self.inv_target_value.setRange(1e-30, 1e30)
         self.inv_target_value.setDecimals(6)
@@ -1443,7 +1474,7 @@ class MainWindow(QMainWindow):
 
         self.inv_d_min = self._spin_ndec(DEFAULTS["INV_D_MIN"], 0.001, 1000, dec=3, step=0.01)
         self.inv_d_max = self._spin_ndec(DEFAULTS["INV_D_MAX"], 0.001, 1000, dec=3, step=1.0)
-        self.inv_n_scan = QSpinBox()
+        self.inv_n_scan = _IntSpinBox()
         self.inv_n_scan.setRange(100, 100000)
         self.inv_n_scan.setValue(DEFAULTS["INV_N_SCAN"])
 
@@ -1459,7 +1490,7 @@ class MainWindow(QMainWindow):
             h = QHBoxLayout()
             cb = QCheckBox("")
             self._material_checkboxes.append((c, cb))
-            sp = QDoubleSpinBox()
+            sp = _DoubleSpinBox()
             sp.setLocale(QLocale(QLocale.C))
             sp.setRange(0, 100)
             sp.setDecimals(2)
@@ -1496,18 +1527,11 @@ class MainWindow(QMainWindow):
         l_ctrl.addWidget(self.btn_inv_stop)
         l_ctrl.addWidget(self.btn_inv_save)
 
-        layout.addStretch()
-
     def _build_optim_tab(self, tab):
         outer = QVBoxLayout(tab)
         outer.setContentsMargins(0, 0, 0, 0)
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        inner = QWidget()
-        scroll.setWidget(inner)
+        scroll, _inner, layout = self._make_scroll_area()
         outer.addWidget(scroll)
-        layout = QVBoxLayout(inner)
 
         g_wl = self._tr_groupbox("optim.group.spectrum_path_materials")
         layout.addWidget(g_wl)
@@ -1530,7 +1554,7 @@ class MainWindow(QMainWindow):
             h = QHBoxLayout()
             cb = QCheckBox("")
             self._material_checkboxes.append((c, cb))
-            sp = QDoubleSpinBox()
+            sp = _DoubleSpinBox()
             sp.setLocale(QLocale(QLocale.C))
             sp.setRange(0, 100)
             sp.setDecimals(2)
@@ -1591,13 +1615,13 @@ class MainWindow(QMainWindow):
         l_search = QFormLayout(g_search)
         self.opt_d_scan_min = self._spin_ndec(0.01, 0.001, 100, dec=3, step=0.01)
         self.opt_d_scan_max = self._spin_ndec(20.0, 0.01, 1000, dec=3, step=1.0)
-        self.opt_n_d_scan = QSpinBox()
+        self.opt_n_d_scan = _IntSpinBox()
         self.opt_n_d_scan.setRange(20, 1000)
         self.opt_n_d_scan.setValue(150)
-        self.opt_n_d_points = QSpinBox()
+        self.opt_n_d_points = _IntSpinBox()
         self.opt_n_d_points.setRange(20, 2000)
         self.opt_n_d_points.setValue(200)
-        self.opt_n_window = QSpinBox()
+        self.opt_n_window = _IntSpinBox()
         self.opt_n_window.setRange(10, 200)
         self.opt_n_window.setValue(50)
         self._add_tr_row(l_search, "label.d_scan_min_um", self.opt_d_scan_min)
@@ -1634,8 +1658,6 @@ class MainWindow(QMainWindow):
         l_ctrl.addWidget(self.btn_opt_run)
         l_ctrl.addWidget(self.btn_opt_stop)
         l_ctrl.addWidget(self.btn_opt_save)
-
-        layout.addStretch()
 
     def _on_optim_mode_changed(self, _text=None):
         opt_mode = self._combo_data(self.opt_mode, OPT_WINDOW_ONLY)
@@ -1922,7 +1944,7 @@ class MainWindow(QMainWindow):
             self._critical_text("dialog.error", str(e))
 
     def _spin_ndec(self, val, minv, maxv, dec=1, step=0.1):
-        s = QDoubleSpinBox()
+        s = _DoubleSpinBox()
         s.setLocale(QLocale(QLocale.C))
         s.setRange(minv, maxv)
         s.setValue(val)
