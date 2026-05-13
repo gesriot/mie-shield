@@ -37,32 +37,32 @@ The built-in material database currently includes:
 
 | Code | Material | Model quality |
 | --- | --- | --- |
-| `C` | carbon soot | A — Chang & Charalampopoulos 1990 polynomial |
-| `Mg` | magnesium | B — coarse piecewise approximation |
-| `MgCl2` | magnesium chloride | B — handbook n_D, no dispersion data |
-| `ZnCl2` | zinc chloride | B — DFPT + IR/Raman Lorentz reconstruction |
-| `MgF2` | magnesium fluoride | A — Dodge 1984 Sellmeier |
-| `Al4C3` | aluminum carbide | C — unverified Sellmeier placeholder |
-| `Al` | aluminum | A — Rakić 1998 Lorentz–Drude |
-| `MgO` | magnesium oxide | A — Stephens & Malitson 1952 + Hofmeister 2003 IR |
-| `Al2O3` | alumina / corundum | A — Malitson & Dodge 1972 Sellmeier |
-| `CuZn` | Cu70/Zn30 brass | A — Querry 1985 tabulated n,k |
-| `AlF3` | aluminum fluoride (α-AlF₃) | B — Jensen 1970 film visible + DFPT Lorentz IR |
-| `AlN` | aluminum nitride (wurtzite) | A/B — Pastrňák 1966 Sellmeier + Kischkat-anchored IR |
-| `Ba3N2` | barium nitride | C — Drude placeholder, semimetallic |
-| `BaO` | barium oxide | B — Anderson & Hensley 1975 Cauchy + compilation IR |
-| `K2CO3` | potassium carbonate (anhydrous) | C — Lorentz reconstruction, no primary spectrum |
-| `KAlO2` | potassium aluminate | C — Lorentz reconstruction, no primary spectrum |
-| `KCN` | potassium cyanide | B — handbook n_D + CN-stretch Lorentz |
-| `MgAl2O4` | magnesium aluminate spinel | A — Tropf & Thomas 1991 Sellmeier |
-| `Mg3N2` | magnesium nitride | B — DFT-anchored Lorentz reconstruction |
-| `Na2CO3` | sodium carbonate (anhydrous) | C — Lorentz reconstruction, no primary spectrum |
-| `NaAlO2` | sodium aluminate | B — DFPT (mp-9212) + HSDB scalars |
-| `SrO` | strontium oxide | B — Pynchon & Sieckmann 1966 visible + Jacobson–Nixon IR |
-| `TiC` | titanium carbide | A — Pflüger/Palik 1984/1991 tabulated n,k (52 pts) |
-| `YSZ` | yttria-stabilized zirconia (12 mol% Y₂O₃) | A — Wood & Nassau 1982 Sellmeier |
-| `ZrC` | zirconium carbide | C — Drude+Lorentz, no bulk single-crystal spectrum |
-| `ZrO2` | zirconium dioxide (m-ZrO₂, baddeleyite) | B — DFPT (mp-2858) Lorentz reconstruction |
+| `C` | carbon soot | A – Chang & Charalampopoulos 1990 polynomial |
+| `Mg` | magnesium | B – coarse piecewise approximation |
+| `MgCl2` | magnesium chloride | B – handbook n_D, no dispersion data |
+| `ZnCl2` | zinc chloride | B – DFPT + IR/Raman Lorentz reconstruction |
+| `MgF2` | magnesium fluoride | A – Dodge 1984 Sellmeier |
+| `Al4C3` | aluminum carbide | C – unverified Sellmeier placeholder |
+| `Al` | aluminum | A – Rakić 1998 Lorentz–Drude |
+| `MgO` | magnesium oxide | A – Stephens & Malitson 1952 + Hofmeister 2003 IR |
+| `Al2O3` | alumina / corundum | A – Malitson & Dodge 1972 Sellmeier |
+| `CuZn` | Cu70/Zn30 brass | A – Querry 1985 tabulated n,k |
+| `AlF3` | aluminum fluoride (α-AlF₃) | B – Jensen 1970 film visible + DFPT Lorentz IR |
+| `AlN` | aluminum nitride (wurtzite) | A/B – Pastrňák 1966 Sellmeier + Kischkat-anchored IR |
+| `Ba3N2` | barium nitride | C – Drude placeholder, semimetallic |
+| `BaO` | barium oxide | B – Anderson & Hensley 1975 Cauchy + compilation IR |
+| `K2CO3` | potassium carbonate (anhydrous) | C – Lorentz reconstruction, no primary spectrum |
+| `KAlO2` | potassium aluminate | C – Lorentz reconstruction, no primary spectrum |
+| `KCN` | potassium cyanide | B – handbook n_D + CN-stretch Lorentz |
+| `MgAl2O4` | magnesium aluminate spinel | A – Tropf & Thomas 1991 Sellmeier |
+| `Mg3N2` | magnesium nitride | B – DFT-anchored Lorentz reconstruction |
+| `Na2CO3` | sodium carbonate (anhydrous) | C – Lorentz reconstruction, no primary spectrum |
+| `NaAlO2` | sodium aluminate | B – DFPT (mp-9212) + HSDB scalars |
+| `SrO` | strontium oxide | B – Pynchon & Sieckmann 1966 visible + Jacobson–Nixon IR |
+| `TiC` | titanium carbide | A – Pflüger/Palik 1984/1991 tabulated n,k (52 pts) |
+| `YSZ` | yttria-stabilized zirconia (12 mol% Y₂O₃) | A – Wood & Nassau 1982 Sellmeier |
+| `ZrC` | zirconium carbide | C – Drude+Lorentz, no bulk single-crystal spectrum |
+| `ZrO2` | zirconium dioxide (m-ZrO₂, baddeleyite) | B – DFPT (mp-2858) Lorentz reconstruction |
 
 Optical constants are documented in [complex-refractive-indices.md](complex-refractive-indices.md). Some materials use literature-based models, while others use approximate reconstructed models where complete measured `n(lambda), k(lambda)` tables are unavailable. Treat approximate materials accordingly.
 
