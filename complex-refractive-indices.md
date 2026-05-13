@@ -136,7 +136,7 @@ As with MgF₂, the **C values are resonance wavelengths, not wavelength-squared
 
 ## 9. Brass Cu70/Zn30 uses tabulated Querry (1985) data with linear interpolation
 
-**Source confirmed:** M. R. Querry, "Optical constants," Contractor Report CRDC-CR-85034, U.S. Army Chemical Research, Development and Engineering Center (1985). Data available at [refractiveindex.info](https://refractiveindex.info/?shelf=other&book=Cu-Zn&page=Querry-Cu70Zn30).
+**Source confirmed:** M. R. Querry, "Optical constants," Contractor Report CRDC-CR-85034, U.S. Army Chemical Research, Development and Engineering Center (1985). Data available at [refractiveindex.info](https://refractiveindex.info/?book=Cu-Zn&page=Querry-Cu70Zn30&shelf=other).
 
 **Mathematical model – tabulated n, k with linear interpolation (np.interp):**
 
@@ -207,13 +207,13 @@ These reproduce ε₀ = ε∞ + Σ Δεⱼ = 2.87 + 2.37 = **5.24**, satisfying 
 - **Querry-1978 caution.** The aqueous-solution data of Querry, Cary & Waring (*Appl. Opt.* **17**, 3587, 1978) is sometimes cited as ZnCl₂ optical data; it is not – the spectrum is dominated by water (3, 6, 12–15 µm bands) modulated weakly by the Zn–Cl stretch near 290 cm⁻¹.
 
 **Primary references:**
-- C. A. Angell & J. Wong, *J. Chem. Phys.* **53**, 2053 (1970), DOI 10.1063/1.1674287.
-- G. J. Janz & D. W. James, *Spectrochim. Acta A* **30**, 717 (1974), DOI 10.1016/0584-8539(74)80189-3.
-- H. L. Yakel & J. Brynestad, *Inorg. Chem.* **17**, 3294 (1978), DOI 10.1021/ic50189a067.
-- H. Hu & J. D. Mackenzie, *Appl. Phys. Lett.* **33**, 57 (1978), DOI 10.1063/1.90183.
-- A. C. Almeida, *J. Am. Ceram. Soc.* **72**, 537 (1989), DOI 10.1111/j.1151-2916.1989.tb06032.x.
+- C. A. Angell & J. Wong, *J. Chem. Phys.* **53**, 2053 (1970), DOI [10.1063/1.1674287](https://doi.org/10.1063/1.1674287).
+- G. J. Janz & D. W. James, *Spectrochim. Acta A* **30**, 717 (1974), DOI [10.1016/0584-8539(74)80189-3](https://doi.org/10.1016/0584-8539%2874%2980189-3).
+- H. L. Yakel & J. Brynestad, *Inorg. Chem.* **17**, 3294 (1978), DOI [10.1021/ic50189a067](https://doi.org/10.1021/ic50189a067).
+- H. Hu & J. D. Mackenzie, *Appl. Phys. Lett.* **33**, 57 (1978), DOI [10.1063/1.90183](https://doi.org/10.1063/1.90183).
+- A. C. Almeida, *J. Am. Ceram. Soc.* **72**, 537 (1989), DOI [10.1111/j.1151-2916.1989.tb06032.x](https://doi.org/10.1111/j.1151-2916.1989.tb06032.x).
 - A. Sen, M. N. Rao, R. Mittal & S. L. Chaplot, *J. Phys.: Condens. Matter* **17**, 6179 (2005), arXiv:cond-mat/0509329.
-- A. G. Kalampounias, S. N. Yannopoulos & G. N. Papatheodorou, *J. Chem. Phys.* **124**, 014504 (2006), DOI 10.1063/1.2151888.
+- A. G. Kalampounias, S. N. Yannopoulos & G. N. Papatheodorou, *J. Chem. Phys.* **124**, 014504 (2006), DOI [10.1063/1.2151888](https://doi.org/10.1063/1.2151888).
 - G. Petousis et al., *Sci. Data* **4**, 160134 (2017); Materials Project entry mp-22909.
 - R. C. Weast (ed.), *CRC Handbook of Chemistry and Physics*, 68th ed. (1988) – n_o, n_e, density.
 
@@ -221,7 +221,7 @@ These reproduce ε₀ = ε∞ + Σ Δεⱼ = 2.87 + 2.37 = **5.24**, satisfying 
 
 ## 11. K₂CO₃ has no published optical tables; reconstruction relies on DFT and carbonate vibrational anchors
 
-**Phase:** anhydrous β-K₂CO₃, monoclinic P2₁/c (Z = 4). Crystal structure from Gatehouse & Lloyd, *J. Chem. Soc. Dalton Trans.* 70 (1973), DOI 10.1039/DT9730000070.
+**Phase:** anhydrous β-K₂CO₃, monoclinic P2₁/c (Z = 4). Crystal structure from Gatehouse & Lloyd, *J. Chem. Soc. Dalton Trans.* 70 (1973), DOI [10.1039/DT9730000070](https://doi.org/10.1039/DT9730000070).
 
 **Density:** the practical handbook value is **2.428 g/cm³** (CRC Handbook, anhydrous). The crystallographic density computed from Gatehouse–Lloyd cell parameters yields ρ_x ≈ 2.43 g/cm³. The Materials Project entry **mp-3963** (same space group) reports a relaxed-cell density of 2.29 g/cm³, which is ~6% low — a known PBE volume overestimate. The handbook value 2.43 g/cm³ is the correct choice for Mie mass-loading calculations.
 
@@ -232,7 +232,7 @@ These reproduce ε₀ = ε∞ + Σ Δεⱼ = 2.87 + 2.37 = **5.24**, satisfying 
 | ε∞ (orientation average) | 2.30 | engineering estimate from analogous carbonates (Na₂CO₃ DFPT, Li₂CO₃ data); Materials Project mp-3963 reports no published dielectric tensor |
 | ε₀ (orientation average) | ~6.5 | estimated from Σ Δε_j of the carbonate-ion modes plus lattice modes |
 | Δε_lattice | ≈ 4.2 | derived |
-| TO mode positions (cm⁻¹) | 706, 880, 1062, 1410, 1465 (CO₃²⁻ internal); 100–350 (lattice/K⁺) | Brooker & Bates, *Spectrochim. Acta A* **30**, 2211 (1974), DOI 10.1016/0584-8539(74)80071-1 |
+| TO mode positions (cm⁻¹) | 706, 880, 1062, 1410, 1465 (CO₃²⁻ internal); 100–350 (lattice/K⁺) | Brooker & Bates, *Spectrochim. Acta A* **30**, 2211 (1974), DOI [10.1016/0584-8539(74)80071-1](https://doi.org/10.1016/0584-8539%2874%2980071-1) |
 
 The carbonate ion contributes four internal modes — ν₁ symmetric stretch (~1062 cm⁻¹), ν₂ out-of-plane bend (~880 cm⁻¹), ν₃ asymmetric stretch (~1410/1465 cm⁻¹ doublet from site-symmetry splitting), ν₄ in-plane bend (~706 cm⁻¹) — plus 12 lattice modes below 350 cm⁻¹ in the C2h₅ factor group. The code partitions Δε_lattice ≈ 4.2 among these mode groups, with the largest Lorentz strengths placed on the strongly polar ν₃ doublet and the lattice modes near 200 cm⁻¹.
 
@@ -252,8 +252,8 @@ These reproduce ε₀ = ε∞ + Σ Δεⱼ ≈ 6.5 by construction. The visible-
 - **Polymorphism.** A high-temperature hexagonal α-K₂CO₃ exists above 420 °C (Materials Project mp-10662); the RT-stable phase is monoclinic P2₁/c.
 
 **Primary references:**
-- M. T. Gatehouse and D. J. Lloyd, *J. Chem. Soc. Dalton Trans.* 70 (1973), DOI 10.1039/DT9730000070 — crystal structure.
-- M. H. Brooker and J. B. Bates, *Spectrochim. Acta A* **30**, 2211 (1974), DOI 10.1016/0584-8539(74)80071-1 — Raman + polarized IR reflectance, P2₁/c factor-group analysis.
+- M. T. Gatehouse and D. J. Lloyd, *J. Chem. Soc. Dalton Trans.* 70 (1973), DOI [10.1039/DT9730000070](https://doi.org/10.1039/DT9730000070) — crystal structure.
+- M. H. Brooker and J. B. Bates, *Spectrochim. Acta A* **30**, 2211 (1974), DOI [10.1016/0584-8539(74)80071-1](https://doi.org/10.1016/0584-8539%2874%2980071-1) — Raman + polarized IR reflectance, P2₁/c factor-group analysis.
 - Materials Project entry mp-3963 — relaxed-cell density, PBE band gap.
 
 ---
@@ -262,7 +262,7 @@ These reproduce ε₀ = ε∞ + Σ Δεⱼ ≈ 6.5 by construction. The visible-
 
 **Phase:** cubic Fm3̄m at room temperature (Phase I, plastic crystal with rotationally disordered CN⁻). At ~83 K KCN transitions to an orthorhombic ordered phase (Phase II). The Materials Project entry **mp-20134** lists a monoclinic Cm "Phase IV" decomposition product, which is not the RT phase and should not be used for handbook density.
 
-**Density:** **1.52 g/cm³** (CRC Handbook via PubChem CID 9032 / HSDB). The X-ray crystallographic density from the Fm3̄m cell parameter a = 6.526 Å (Bozorth, *J. Am. Chem. Soc.* **44**, 317 (1922), DOI 10.1021/ja01423a010), with Z = 4 and M = 65.12 g/mol, gives ρ_x = ZM/(N_A·V) = 4 × 65.12 / (6.022e23 × 6.526e-8)³ = **1.561 g/cm³**, within 3% of the handbook value.
+**Density:** **1.52 g/cm³** (CRC Handbook via PubChem CID 9032 / HSDB). The X-ray crystallographic density from the Fm3̄m cell parameter a = 6.526 Å (Bozorth, *J. Am. Chem. Soc.* **44**, 317 (1922), DOI [10.1021/ja01423a010](https://doi.org/10.1021/ja01423a010), with Z = 4 and M = 65.12 g/mol, gives ρ_x = ZM/(N_A·V) = 4 × 65.12 / (6.022e23 × 6.526e-8)³ = **1.561 g/cm³**, within 3% of the handbook value.
 
 **Optical model — handbook-scalar with lattice tail.** PubChem/HSDB lists **n ≈ 1.410** at the sodium D line (589 nm). This is the only optical datum located for crystalline KCN. The handbook value is consistent with what one expects from the Clausius–Mossotti relation given the ionic polarizabilities α(K⁺) ≈ 1.1 Å³, α(CN⁻) ≈ 4.5 Å³ and the molar volume implied by ρ = 1.52 g/cm³. No measured Sellmeier coefficients or n(λ),k(λ) tables exist for KCN in any open optical database (refractiveindex.info, Palik, SOPRA).
 
@@ -271,7 +271,7 @@ The code uses a constant n = 1.410, k = 0 across the visible/near-IR, transition
 | Input | Value | Source |
 |:------|:------|:-------|
 | ε∞ | 1.988 (= 1.410²) | handbook n_D, PubChem CID 9032 |
-| Strongest IR-active mode (ν CN) | 2070–2080 cm⁻¹ (~4.8 µm) | Lefebvre, *J. Chem. Phys.* **35**, 774 (1961), DOI 10.1063/1.1731996 — solid-state spectrum |
+| Strongest IR-active mode (ν CN) | 2070–2080 cm⁻¹ (~4.8 µm) | Lefebvre, *J. Chem. Phys.* **35**, 774 (1961), DOI [10.1063/1.1731996](https://doi.org/10.1063/1.1731996) — solid-state spectrum |
 | Lattice / translatory modes | ~100–200 cm⁻¹ (50–100 µm) | Field & Sherman, *J. Chem. Phys.* **47**, 2378 (1967) |
 
 A single Lorentz oscillator with ω₀ ≈ 2075 cm⁻¹, Δε ≈ 0.2, γ ≈ 30 cm⁻¹ captures the CN stretch absorption near 4.8 µm; a second oscillator at ω₀ ≈ 150 cm⁻¹, Δε ≈ 0.5, γ ≈ 40 cm⁻¹ captures the far-IR lattice mode contribution. ε₀ ≈ 2.7 by construction. **k remains numerically small** (< 10⁻³) outside the narrow CN-stretch region — KCN is essentially transparent across most of the 0.4–30 µm window in the absence of absorbed water.
@@ -282,8 +282,8 @@ A single Lorentz oscillator with ω₀ ≈ 2075 cm⁻¹, Δε ≈ 0.2, γ ≈ 30
 - **Phase disorder.** At room temperature the CN⁻ ion is rotationally disordered; the Fm3̄m structure is a time-averaged cubic. The constant n_D ≈ 1.410 is the isotropic average over this dynamic disorder.
 
 **Primary references:**
-- R. M. Bozorth, *J. Am. Chem. Soc.* **44**, 317 (1922), DOI 10.1021/ja01423a010 — Fm3̄m structure and lattice parameter.
-- J. Lefebvre, *J. Chem. Phys.* **35**, 774 (1961), DOI 10.1063/1.1731996 — solid-state IR of sodium and potassium cyanide.
+- R. M. Bozorth, *J. Am. Chem. Soc.* **44**, 317 (1922), DOI [10.1021/ja01423a010](https://doi.org/10.1021/ja01423a010) — Fm3̄m structure and lattice parameter.
+- J. Lefebvre, *J. Chem. Phys.* **35**, 774 (1961), DOI [10.1063/1.1731996](https://doi.org/10.1063/1.1731996) — solid-state IR of sodium and potassium cyanide.
 - PubChem CID 9032 / HSDB — handbook n_D = 1.410 and density 1.52 g/cm³.
 - Materials Project entry mp-20134 — note that the Cm "Phase IV" entry is not the RT phase.
 
@@ -291,7 +291,7 @@ A single Lorentz oscillator with ω₀ ≈ 2075 cm⁻¹, Δε ≈ 0.2, γ ≈ 30
 
 ## 13. AlN combines Pastrňák–Roskovcová (1966) Sellmeier with DFPT and IR film data
 
-**Phase:** wurtzite P6₃mc (Z = 2). Lattice parameters at RT a = 3.1113 Å, c = 4.9819 Å from Jin et al., *Powder Diffraction* **29**, 365 (2014), DOI 10.1017/S0885715614000542.
+**Phase:** wurtzite P6₃mc (Z = 2). Lattice parameters at RT a = 3.1113 Å, c = 4.9819 Å from Jin et al., *Powder Diffraction* **29**, 365 (2014), DOI [10.1017/S0885715614000542](https://doi.org/10.1017/S0885715614000542).
 
 **Density:** ρ_x = ZM/(N_A·V) with V = (√3/2)·a²·c = 41.79 Å³ and M(AlN) = 40.99 g/mol gives ρ_x = 2 × 40.99 / (6.022e23 × 41.79e-24) = **3.258 g/cm³**, in agreement with the commonly cited handbook value 3.26 g/cm³. The Materials Project entry **mp-661** reports 3.20 g/cm³ from the PBE-relaxed cell (volume slightly overestimated). The code uses **3260 kg/m³**.
 
@@ -299,7 +299,7 @@ A single Lorentz oscillator with ω₀ ≈ 2075 cm⁻¹, Δε ≈ 0.2, γ ≈ 30
 
 $$n^2 - 1 = 2.1399 + \frac{1.3786\,\lambda^2}{\lambda^2 - 0.1715^2} + \frac{3.861\,\lambda^2}{\lambda^2 - 15.03^2}$$
 
-(ordinary ray, λ in µm; verbatim from refractiveindex.info / Pastrňák & Roskovcová, *Phys. Status Solidi* **14**, K5 (1966), DOI 10.1002/pssb.19660140127). The extraordinary-ray coefficients are 2.0729, 1.6173, 0.1746, 4.139, 15.03 (same formula). **Wavelength range: 0.22–5.0 µm at room temperature.** At λ = 589 nm the ordinary-ray formula gives n ≈ 2.155, matching the widely cited handbook value for stoichiometric single-crystal AlN.
+(ordinary ray, λ in µm; verbatim from refractiveindex.info / Pastrňák & Roskovcová, *Phys. Status Solidi* **14**, K5 (1966), DOI [10.1002/pssb.19660140127](https://doi.org/10.1002/pssb.19660140127). The extraordinary-ray coefficients are 2.0729, 1.6173, 0.1746, 4.139, 15.03 (same formula). **Wavelength range: 0.22–5.0 µm at room temperature.** At λ = 589 nm the ordinary-ray formula gives n ≈ 2.155, matching the widely cited handbook value for stoichiometric single-crystal AlN.
 
 AlN is uniaxial positive with birefringence Δn = n_e − n_o ≈ +0.01 in the visible. For polycrystalline AlN particles (the relevant case for Mie scattering on dispersed grains) the orientation average n_avg = √[(2 n_o² + n_e²)/3] is appropriate; the code uses this average rather than the o-ray formula alone.
 
@@ -310,7 +310,7 @@ AlN is uniaxial positive with birefringence Δn = n_e − n_o ≈ +0.01 in the v
 
 The DFPT n_∞ = 2.13 is within 1% of the Pastrňák Sellmeier prediction at long wavelengths, providing independent validation.
 
-**Mid-IR extension — Kischkat-anchored Lorentz oscillator model.** For wavelengths beyond 5 µm where the Pastrňák Sellmeier loses accuracy near the reststrahlen, the code uses a four-oscillator Lorentz model. The oscillator frequencies (E₁ TO ≈ 670 cm⁻¹, A₁ TO ≈ 610 cm⁻¹) are anchored to the phonon positions reported by Kischkat et al. (1.53–14 µm sputtered film), *Appl. Opt.* **51**, 6789 (2012), DOI 10.1364/AO.51.006789, with Drude-Lorentz parameters additionally constrained by the DFPT ε∞/ε₀ from mp-661. This is a Lorentz reconstruction, not a direct table-interpolation of the Kischkat data. Caveat: the Kischkat film phonon positions agree with single-crystal values, but oscillator widths and the multiphonon tail in the reconstruction are engineering approximations.
+**Mid-IR extension — Kischkat-anchored Lorentz oscillator model.** For wavelengths beyond 5 µm where the Pastrňák Sellmeier loses accuracy near the reststrahlen, the code uses a four-oscillator Lorentz model. The oscillator frequencies (E₁ TO ≈ 670 cm⁻¹, A₁ TO ≈ 610 cm⁻¹) are anchored to the phonon positions reported by Kischkat et al. (1.53–14 µm sputtered film), *Appl. Opt.* **51**, 6789 (2012), DOI [10.1364/AO.51.006789](https://doi.org/10.1364/AO.51.006789), with Drude-Lorentz parameters additionally constrained by the DFPT ε∞/ε₀ from mp-661. This is a Lorentz reconstruction, not a direct table-interpolation of the Kischkat data. Caveat: the Kischkat film phonon positions agree with single-crystal values, but oscillator widths and the multiphonon tail in the reconstruction are engineering approximations.
 
 **Key caveats.**
 - **Single-crystal vs polycrystal.** Pastrňák–Roskovcová measured single-crystal AlN. For Mie scattering on AlN particles the orientation-averaged n is the operative quantity; using only the o-ray formula introduces a ~0.3% underestimate.
@@ -318,9 +318,9 @@ The DFPT n_∞ = 2.13 is within 1% of the Pastrňák Sellmeier prediction at lon
 - **Free-carrier absorption.** Doped or n-type AlN (e.g., Si-doped) develops a Drude tail in the IR that this Sellmeier model does not capture.
 
 **Primary references:**
-- J. Pastrňák and L. Roskovcová, *Phys. Status Solidi* **14**, K5 (1966), DOI 10.1002/pssb.19660140127 — Sellmeier coefficients for o and e rays.
-- J. Kischkat et al., *Appl. Opt.* **51**, 6789 (2012), DOI 10.1364/AO.51.006789 — mid-IR n,k for sputtered AlN film.
-- Y. Jin et al., *Powder Diffraction* **29**, 365 (2014), DOI 10.1017/S0885715614000542 — RT lattice parameters.
+- J. Pastrňák and L. Roskovcová, *Phys. Status Solidi* **14**, K5 (1966), DOI [10.1002/pssb.19660140127](https://doi.org/10.1002/pssb.19660140127) — Sellmeier coefficients for o and e rays.
+- J. Kischkat et al., *Appl. Opt.* **51**, 6789 (2012), DOI [10.1364/AO.51.006789](https://doi.org/10.1364/AO.51.006789) — mid-IR n,k for sputtered AlN film.
+- Y. Jin et al., *Powder Diffraction* **29**, 365 (2014), DOI [10.1017/S0885715614000542](https://doi.org/10.1017/S0885715614000542) — RT lattice parameters.
 - Materials Project entry mp-661 — DFPT ε∞/ε₀ tensors.
 
 ---
@@ -345,7 +345,7 @@ Spinel is cubic and therefore optically isotropic — no birefringence handling 
 - Implied long-wavelength refractive index √ε∞ = **1.755**, within 2% of the Tropf–Thomas Sellmeier and within 2% of the handbook visible n = 1.718.
 - PBE band gap: 5.12 eV (optical gap of spinel ~7.8 eV; standard PBE underestimate).
 
-**Mid-IR / phonon region.** Tropf & Thomas (1991) and Naghibzadeh et al., *Thin Solid Films* **577**, 117 (2014), DOI 10.1016/j.tsf.2013.11.141, report four IR-active T₁ᵤ TO modes at approximately 305, 430, 525, and 670 cm⁻¹. For λ > 5.5 µm the Tropf Sellmeier loses accuracy as the reststrahlen near 15–25 µm is approached; the code optionally appends a four-oscillator Lorentz with these TO positions and Δε_total = ε₀ − ε∞ = 5.40 partitioned among the four modes (typical literature partition: ~0.5, 1.7, 1.5, 1.7 in order of increasing frequency).
+**Mid-IR / phonon region.** Tropf & Thomas (1991) and Naghibzadeh et al., *Thin Solid Films* **577**, 117 (2014), DOI [10.1016/j.tsf.2013.11.141](https://doi.org/10.1016/j.tsf.2013.11.141), report four IR-active T₁ᵤ TO modes at approximately 305, 430, 525, and 670 cm⁻¹. For λ > 5.5 µm the Tropf Sellmeier loses accuracy as the reststrahlen near 15–25 µm is approached; the code optionally appends a four-oscillator Lorentz with these TO positions and Δε_total = ε₀ − ε∞ = 5.40 partitioned among the four modes (typical literature partition: ~0.5, 1.7, 1.5, 1.7 in order of increasing frequency).
 
 **Key caveats.**
 - **Composition stoichiometry.** Natural and engineered spinel can deviate from MgAl₂O₄ toward Mg(Al,Mg)₂O₄ alumina-rich solid solutions. The Tropf coefficients apply to stoichiometric MgAl₂O₄; off-stoichiometric or inverse spinel raises n by 0.005–0.01 per 10% Al₂O₃ excess.
@@ -354,15 +354,15 @@ Spinel is cubic and therefore optically isotropic — no birefringence handling 
 
 **Primary references:**
 - W. J. Tropf and M. E. Thomas, in *Handbook of Optical Constants of Solids II* (E. D. Palik, ed.), Academic Press 1991, pp. 881–895 — Sellmeier coefficients.
-- R. Naghibzadeh et al., *Thin Solid Films* **577**, 117 (2014), DOI 10.1016/j.tsf.2013.11.141 — ellipsometry 0.76–9.0 eV + FTIR ellipsometry 250–1000 cm⁻¹.
-- M. Ganesh, *Int. Mater. Rev.* **58**, 63 (2013), DOI 10.1179/1743280412Y.0000000001 — spinel density and properties review.
+- R. Naghibzadeh et al., *Thin Solid Films* **577**, 117 (2014), DOI [10.1016/j.tsf.2013.11.141](https://doi.org/10.1016/j.tsf.2013.11.141) — ellipsometry 0.76–9.0 eV + FTIR ellipsometry 250–1000 cm⁻¹.
+- M. Ganesh, *Int. Mater. Rev.* **58**, 63 (2013), DOI [10.1179/1743280412Y.0000000001](https://doi.org/10.1179/1743280412Y.0000000001) — spinel density and properties review.
 - Materials Project entry mp-3536 — DFPT dielectric.
 
 ---
 
 ## 15. KAlO₂ has no measured optical spectrum; the entry is a DFT-anchored reconstruction
 
-**Phase:** at room temperature KAlO₂ adopts the orthorhombic Pbca structure (Z = 8), transforming to a tetragonal phase near 540 °C. Crystal structure from Burmakin et al., *Russ. J. Electrochem.* **40**, 614 (2004), DOI 10.1023/B:RUEL.0000032011.62018.67, and Huang & Schneider, *J. Solid State Chem.* **143**, 191 (1999), DOI 10.1006/jssc.1999.8426.
+**Phase:** at room temperature KAlO₂ adopts the orthorhombic Pbca structure (Z = 8), transforming to a tetragonal phase near 540 °C. Crystal structure from Burmakin et al., *Russ. J. Electrochem.* **40**, 614 (2004), DOI [10.1023/B:RUEL.0000032011.62018.67](https://doi.org/10.1023/B:RUEL.0000032011.62018.67), and Huang & Schneider, *J. Solid State Chem.* **143**, 191 (1999), DOI [10.1006/jssc.1999.8426](https://doi.org/10.1006/jssc.1999.8426).
 
 **Density:** the published Pbca cell parameters give ρ_x ≈ **2.84 g/cm³**. The Materials Project entry **mp-5525** reports 2.75 g/cm³ from the PBE-relaxed cell — the usual ~3% volume overestimate. No CRC-style handbook scalar exists for crystalline KAlO₂ in well-traced form. Per the project-wide policy (see Conclusion: X-ray density for pure-phase Mie mass loading, MP density only as cross-reference), the code uses **2840 kg/m³**.
 
@@ -389,15 +389,15 @@ Visible-range n = √ε∞ ≈ **1.673**. k = 0 below 5 µm; the optical gap is 
 - **Hygroscopicity.** KAlO₂ reacts with atmospheric moisture, producing KOH and a hydrated aluminate skin; this is the dominant reason no clean optical measurements exist.
 
 **Primary references:**
-- E. I. Burmakin et al., *Russ. J. Electrochem.* **40**, 614 (2004), DOI 10.1023/B:RUEL.0000032011.62018.67 — Pbca structure.
-- Q. Huang and S. J. Schneider, *J. Solid State Chem.* **143**, 191 (1999), DOI 10.1006/jssc.1999.8426 — high-T phase transition.
+- E. I. Burmakin et al., *Russ. J. Electrochem.* **40**, 614 (2004), DOI [10.1023/B:RUEL.0000032011.62018.67](https://doi.org/10.1023/B:RUEL.0000032011.62018.67) — Pbca structure.
+- Q. Huang and S. J. Schneider, *J. Solid State Chem.* **143**, 191 (1999), DOI [10.1006/jssc.1999.8426](https://doi.org/10.1006/jssc.1999.8426) — high-T phase transition.
 - Materials Project entry mp-5525 — relaxed-cell density, PBE band gap.
 
 ---
 
 ## 16. Na₂CO₃ reconstruction follows the K₂CO₃ template with γ-phase anchors
 
-**Phase:** at room temperature anhydrous Na₂CO₃ adopts the γ phase, monoclinic / incommensurately modulated near 295 K. Crystal structure from Arakcheeva & Chapuis, *Acta Cryst. B* **61**, 601 (2005), DOI 10.1107/S0108768105033008.
+**Phase:** at room temperature anhydrous Na₂CO₃ adopts the γ phase, monoclinic / incommensurately modulated near 295 K. Crystal structure from Arakcheeva & Chapuis, *Acta Cryst. B* **61**, 601 (2005), DOI [10.1107/S0108768105033008](https://doi.org/10.1107/S0108768105033008).
 
 **Density:** the X-ray crystallographic density for γ-Na₂CO₃ at 295 K is **2.54 g/cm³** (Arakcheeva & Chapuis). The Materials Project entry **mp-3070** (monoclinic C2/m) reports 2.44 g/cm³ (PBE-relaxed). Do **not** confuse with the monohydrate Na₂CO₃·H₂O (mineral thermonatrite), ρ = 2.26 g/cm³, or the decahydrate Na₂CO₃·10H₂O (natron), ρ = 1.44 g/cm³ — both common laboratory contaminants. The code uses **2540 kg/m³** for anhydrous γ-Na₂CO₃.
 
@@ -407,7 +407,7 @@ Visible-range n = √ε∞ ≈ **1.673**. k = 0 below 5 µm; the optical gap is 
 |:------|:------|:-------|
 | ε∞ (orientation average) | 2.30 | engineering estimate; MP mp-3070 dielectric tensor is downloadable but not in the public summary |
 | ε₀ (orientation average) | ~6.5 | from Σ Δε_j of CO₃²⁻ modes + Na⁺ translatory modes |
-| TO mode positions (cm⁻¹) | 700 (ν₄), 880 (ν₂), 1080 (ν₁), 1430 (ν₃); 200 (Na⁺ translatory) | NIST WebBook IR spectrum + Bishop, *Earth Space Sci.* **8**, e2021EA001844 (2021), DOI 10.1029/2021EA001844 |
+| TO mode positions (cm⁻¹) | 700 (ν₄), 880 (ν₂), 1080 (ν₁), 1430 (ν₃); 200 (Na⁺ translatory) | NIST WebBook IR spectrum + Bishop, *Earth Space Sci.* **8**, e2021EA001844 (2021), DOI [10.1029/2021EA001844](https://doi.org/10.1029/2021EA001844) |
 
 | j | ω_j (cm⁻¹) | λ_j (µm) | Δε_j | γ_j (cm⁻¹) | Assignment |
 |:-:|:----------:|:--------:|:----:|:----------:|:-----------|
@@ -425,8 +425,8 @@ Visible n = √ε∞ ≈ **1.516**. The natural mineral natrite has nα = 1.42, 
 - **Quality C — reconstruction only.** No primary spectrum exists.
 
 **Primary references:**
-- A. V. Arakcheeva and G. Chapuis, *Acta Cryst. B* **61**, 601 (2005), DOI 10.1107/S0108768105033008 — γ-Na₂CO₃ structure at 295 K.
-- J. L. Bishop, *Earth Space Sci.* **8**, e2021EA001844 (2021), DOI 10.1029/2021EA001844 — spectral properties of anhydrous carbonates.
+- A. V. Arakcheeva and G. Chapuis, *Acta Cryst. B* **61**, 601 (2005), DOI [10.1107/S0108768105033008](https://doi.org/10.1107/S0108768105033008) — γ-Na₂CO₃ structure at 295 K.
+- J. L. Bishop, *Earth Space Sci.* **8**, e2021EA001844 (2021), DOI [10.1029/2021EA001844](https://doi.org/10.1029/2021EA001844) — spectral properties of anhydrous carbonates.
 - NIST Chemistry WebBook entry C497198 — IR spectrum of Na₂CO₃.
 - Materials Project entry mp-3070 — relaxed-cell density.
 
@@ -434,7 +434,7 @@ Visible n = √ε∞ ≈ **1.516**. The natural mineral natrite has nα = 1.42, 
 
 ## 17. ZrO₂ baddeleyite (monoclinic) is reconstructed from DFPT plus single-crystal Raman positions
 
-**Phase:** monoclinic baddeleyite P2₁/c (Z = 4) is the room-temperature stable polymorph of pure ZrO₂. Structure from McCullough & Trueblood, *Acta Cryst.* **12**, 507 (1959), DOI 10.1107/S0365110X59001530; lattice parameters a = 5.1505 Å, b = 5.2116 Å, c = 5.3173 Å, β = 99.23°.
+**Phase:** monoclinic baddeleyite P2₁/c (Z = 4) is the room-temperature stable polymorph of pure ZrO₂. Structure from McCullough & Trueblood, *Acta Cryst.* **12**, 507 (1959), DOI [10.1107/S0365110X59001530](https://doi.org/10.1107/S0365110X59001530); lattice parameters a = 5.1505 Å, b = 5.2116 Å, c = 5.3173 Å, β = 99.23°.
 
 **Density:** ρ_x = ZM/(N_A·V) with M = 123.22 g/mol, V = 140.91 Å³ (cell volume from primary structure), Z = 4: ρ_x = 4 × 123.22 / (6.022e23 × 140.91e-24) = **5.81 g/cm³**. The mineral-handbook value for natural baddeleyite (Anthony et al., *Handbook of Mineralogy*) is 5.68 g/cm³, slightly lower because natural specimens include minor cation substitutions (HfO₂, TiO₂) and microporosity — that value is appropriate for mineralogical work but not for synthetic dense m-ZrO₂. The Materials Project entry **mp-2858** reports 5.56 g/cm³ from the PBE-relaxed cell. The code uses the X-ray crystallographic value **5810 kg/m³** for pure synthetic m-ZrO₂.
 
@@ -448,7 +448,7 @@ Visible n = √ε∞ ≈ **1.516**. The natural mineral natrite has nα = 1.42, 
 
 The DFPT n_∞ = 2.31 is in agreement with the visible refractive-index range 2.13–2.20 reported for natural baddeleyite mineral specimens (Tropf & Thomas in Palik vol. 2; mineral specimens contain some HfO₂ which slightly lowers n).
 
-**Raman / IR phonon modes** for monoclinic ZrO₂ (Bouvier et al., *J. Phys. Chem. Solids* **61**, 569 (2000), DOI 10.1016/S0022-3697(99)00237-3 — note: 13 Raman-active modes are documented; the IR-active modes overlap closely): 177, 189, 220, 303, 332, 344, 379, 473, 502, 535, 558, 615, 635 cm⁻¹. The dominant TO oscillator strengths cluster around 175, 380, and 500 cm⁻¹ from earlier FTIR reflectance work (Pecharský et al., similarly Hofmeister analyses). The code uses a five-oscillator partition:
+**Raman / IR phonon modes** for monoclinic ZrO₂. Kim & Hamaguchi (1997) assigned the observed Raman modes of monoclinic zirconia; the modes most prominent in the 100–700 cm⁻¹ fingerprint region are: 177, 189, 220, 303, 332, 344, 379, 473, 502, 535, 558, 615, 635 cm⁻¹. The dominant TO oscillator strengths cluster around 175, 380, and 500 cm⁻¹ from earlier FTIR reflectance work (Pecharský et al., similarly Hofmeister analyses). The code uses a five-oscillator partition:
 
 | j | ω_j (cm⁻¹) | λ_j (µm) | Δε_j | γ_j (cm⁻¹) | Assignment |
 |:-:|:----------:|:--------:|:----:|:----------:|:-----------|
@@ -468,9 +468,9 @@ These reproduce Σ Δε_j = 15.9 ≈ Δε_lattice by construction. Beyond ~25 µ
 - **Birefringence.** Monoclinic ZrO₂ is biaxial (Δn ≈ 0.04 between principal directions). The orientation-averaged n above is the operative quantity for randomly oriented Mie scatterers.
 
 **Primary references:**
-- D. K. McCullough and K. N. Trueblood, *Acta Cryst.* **12**, 507 (1959), DOI 10.1107/S0365110X59001530 — baddeleyite structure.
-- P. Bouvier and G. Lucazeau, *J. Phys. Chem. Solids* **61**, 569 (2000), DOI 10.1016/S0022-3697(99)00237-3 — single-crystal Raman modes.
-- X. Zhao and D. Vanderbilt, *Phys. Rev. B* **65**, 075105 (2002), DOI 10.1103/PhysRevB.65.075105 — first-principles phonons and lattice dielectric tensor of m-ZrO₂.
+- D. K. McCullough and K. N. Trueblood, *Acta Cryst.* **12**, 507 (1959), DOI [10.1107/S0365110X59001530](https://doi.org/10.1107/S0365110X59001530) — baddeleyite structure.
+- B.-K. Kim and H.-O. Hamaguchi, "Mode assignments of the Raman spectrum of monoclinic zirconia by isotopic exchange technique," *Phys. Status Solidi B* **203**, 557–563 (1997), DOI [10.1002/1521-3951(199710)203:2<557::AID-PSSB557>3.0.CO;2-C](https://doi.org/10.1002/1521-3951%28199710%29203%3A2%3C557%3A%3AAID-PSSB557%3E3.0.CO%3B2-C) — single-crystal m-ZrO₂ Raman mode assignments.
+- X. Zhao and D. Vanderbilt, *Phys. Rev. B* **65**, 075105 (2002), DOI [10.1103/PhysRevB.65.075105](https://doi.org/10.1103/PhysRevB.65.075105) — first-principles phonons and lattice dielectric tensor of m-ZrO₂.
 - Materials Project entry mp-2858 — DFPT ε∞/ε₀ tensors.
 
 ---
@@ -487,13 +487,13 @@ This entry is **a separate handbook material from m-ZrO₂ §17** and is intende
 
 $$n^2 - 1 = \frac{1.347091\,\lambda^2}{\lambda^2 - 0.062543^2} + \frac{2.117788\,\lambda^2}{\lambda^2 - 0.166739^2} + \frac{9.452943\,\lambda^2}{\lambda^2 - 24.320570^2}$$
 
-(λ in µm; verbatim from D. L. Wood and K. Nassau, "Refractive index of cubic zirconia stabilized with yttria," *Appl. Opt.* **21**, 2978 (1982), DOI 10.1364/AO.21.002978, as listed on refractiveindex.info). **Wavelength range: 0.361–5.135 µm at 25 °C.** Resonance wavelengths: λ₁ = 62.5 nm (deep-UV electronic), λ₂ = 167 nm (VUV electronic), λ₃ = 24.3 µm (IR phonon).
+(λ in µm; verbatim from D. L. Wood and K. Nassau, "Refractive index of cubic zirconia stabilized with yttria," *Appl. Opt.* **21**, 2978 (1982), DOI [10.1364/AO.21.002978](https://doi.org/10.1364/AO.21.002978), as listed on refractiveindex.info). **Wavelength range: 0.361–5.135 µm at 25 °C.** Resonance wavelengths: λ₁ = 62.5 nm (deep-UV electronic), λ₂ = 167 nm (VUV electronic), λ₃ = 24.3 µm (IR phonon).
 
 At λ = 589 nm the formula gives n ≈ **2.157**, in agreement with the gem-trade value 2.15–2.18 for cubic zirconia of comparable composition. k = 0 across 0.36–5 µm.
 
 **Strict scope policy.** The YSZ code material implements **Wood & Nassau only**, valid in 0.361–5.135 µm at 25 °C for the **12.0 mol% Y₂O₃** composition. Outside that wavelength range the code clamps to the boundary value with a documented caveat — it does **not** automatically substitute another dataset. The reason is provenance: every nominally "cubic ZrO₂" optical-constants set in the open literature is bound to a specific stabilizer chemistry and concentration, and silent substitution would smear those distinctions.
 
-**Related but separate dataset — Synowicki & Tiwald (2004).** R. A. Synowicki and T. E. Tiwald, *Thin Solid Films* **455–456**, 248 (2004), DOI 10.1016/j.tsf.2004.02.028, report tabulated n,k for bulk cubic ZrO₂ across **0.13–33 µm**. The Synowicki sample is **calcia-stabilized** (CaO-stabilized) skull-melt single crystal, qualitatively similar to but chemically distinct from Y₂O₃-stabilized YSZ. The dataset gives n = 2.18 at 589 nm — within 1% of Wood–Nassau — and properly captures the reststrahlen onset near 14 µm and multiphonon absorption to 33 µm. **It is documented here as a citable reference for users who need broader spectral coverage, but the YSZ code material does not invoke it.** A separate material code (e.g. `ZrO2_c_Synowicki`) could be added in future if a CaO-stabilized cubic-zirconia model is needed.
+**Related but separate dataset — Synowicki & Tiwald (2004).** R. A. Synowicki and T. E. Tiwald, *Thin Solid Films* **455–456**, 248 (2004), DOI [10.1016/j.tsf.2004.02.028](https://doi.org/10.1016/j.tsf.2004.02.028), report tabulated n,k for bulk cubic ZrO₂ across **0.13–33 µm**. The Synowicki sample is **calcia-stabilized** (CaO-stabilized) skull-melt single crystal, qualitatively similar to but chemically distinct from Y₂O₃-stabilized YSZ. The dataset gives n = 2.18 at 589 nm — within 1% of Wood–Nassau — and properly captures the reststrahlen onset near 14 µm and multiphonon absorption to 33 µm. **It is documented here as a citable reference for users who need broader spectral coverage, but the YSZ code material does not invoke it.** A separate material code (e.g. `ZrO2_c_Synowicki`) could be added in future if a CaO-stabilized cubic-zirconia model is needed.
 
 **Key caveats.**
 - **Composition dependence.** Wood–Nassau coefficients are calibrated to 12.0 mol% Y₂O₃. The 8YSZ composition (~8 mol% Y₂O₃) used in thermal-barrier coatings has n ≈ 0.005 lower at 589 nm; the 3YSZ composition (partially stabilized tetragonal) is birefringent and significantly off the cubic model. Use this YSZ entry only for compositions in the 10–14 mol% range.
@@ -501,8 +501,8 @@ At λ = 589 nm the formula gives n ≈ **2.157**, in agreement with the gem-trad
 - **Vacancy disorder.** Y₂O₃-stabilized cubic ZrO₂ contains 4–6 mol% oxygen vacancies for charge balance. The dielectric properties are slightly composition-dependent through these vacancies; Wood–Nassau captures only the 12 mol% case.
 
 **Primary references:**
-- D. L. Wood and K. Nassau, *Appl. Opt.* **21**, 2978 (1982), DOI 10.1364/AO.21.002978 — Sellmeier for 12 mol% YSZ (the only dataset invoked by the YSZ code material).
-- R. A. Synowicki and T. E. Tiwald, *Thin Solid Films* **455–456**, 248 (2004), DOI 10.1016/j.tsf.2004.02.028 — VASE bulk CaO-stabilized c-ZrO₂ n,k 0.13–33 µm (documented but not used by the code).
+- D. L. Wood and K. Nassau, *Appl. Opt.* **21**, 2978 (1982), DOI [10.1364/AO.21.002978](https://doi.org/10.1364/AO.21.002978) — Sellmeier for 12 mol% YSZ (the only dataset invoked by the YSZ code material).
+- R. A. Synowicki and T. E. Tiwald, *Thin Solid Films* **455–456**, 248 (2004), DOI [10.1016/j.tsf.2004.02.028](https://doi.org/10.1016/j.tsf.2004.02.028) — VASE bulk CaO-stabilized c-ZrO₂ n,k 0.13–33 µm (documented but not used by the code).
 
 ---
 
@@ -512,7 +512,7 @@ At λ = 589 nm the formula gives n ≈ **2.157**, in agreement with the gem-trad
 
 **Density:** the X-ray crystallographic density for stoichiometric ZrC from a = 4.693 Å (Z = 4, M = 103.235 g/mol) is ρ_x = 4 × 103.235 / (6.022e23 × 103.4e-24) = **6.63 g/cm³**, in agreement with the handbook value 6.73 g/cm³. The Materials Project entry **mp-2795** reports 6.50 g/cm³ from the PBE-relaxed cell. The code uses **6630 kg/m³**. For sub-stoichiometric ZrC_{0.85}, density drops to ~6.5 g/cm³; this composition dependence is not captured.
 
-**Optical model — Drude + Lorentz hybrid.** Open primary single-crystal optical constants for bulk stoichiometric ZrC in the visible/near-IR range were not located in this research pass. The only continuous datasets identified are (a) Martin et al., *J. Nucl. Mater.* **489**, 286 (2017), DOI 10.1016/j.jnucmat.2017.02.041 — pulsed-laser-deposited nanocrystalline films, dielectric function 0.06–6 eV, and (b) Singh et al., *Appl. Opt.* **54**, 253 (2015), DOI 10.1364/AO.54.000253 — soft X-ray optical constants 60–200 Å. The bulk-single-crystal visible/near-IR optical constants would require a dedicated reflectance + Kramers–Kronig analysis that has not been published openly.
+**Optical model — Drude + Lorentz hybrid.** Open primary single-crystal optical constants for bulk stoichiometric ZrC in the visible/near-IR range were not located in this research pass. The only continuous datasets identified are (a) Martin et al., *J. Nucl. Mater.* **489**, 286 (2017), DOI [10.1016/j.jnucmat.2017.02.041](https://doi.org/10.1016/j.jnucmat.2017.02.041) — pulsed-laser-deposited nanocrystalline films, dielectric function 0.06–6 eV, and (b) Singh et al., *Appl. Opt.* **54**, 253 (2015), DOI [10.1364/AO.54.000253](https://doi.org/10.1364/AO.54.000253) — soft X-ray optical constants 60–200 Å. The bulk-single-crystal visible/near-IR optical constants would require a dedicated reflectance + Kramers–Kronig analysis that has not been published openly.
 
 The code uses a free-electron Drude term plus a single interband Lorentz oscillator, with parameters chosen to be qualitatively consistent with (i) ZrC's known DC resistivity ~40 µΩ·cm at RT, (ii) a plasma frequency in the 6–7 eV range as inferred from Martin et al. and TiC-family scaling, and (iii) a single interband absorption peak near 4.5 eV typical of group-IV transition-metal carbides:
 
@@ -533,8 +533,8 @@ Representative outputs of the resulting model: at 589 nm n ≈ 0.78, k ≈ 1.55 
 - **Surface oxide / carbide film.** Bulk ZrC develops a ZrO_{2−x}C_y skin in air. Optical measurements on un-protected samples deviate from the bare-ZrC model by ~20% in the UV.
 
 **Primary references:**
-- C. Martin et al., *J. Nucl. Mater.* **489**, 286 (2017), DOI 10.1016/j.jnucmat.2017.02.041 — PLD nanocrystalline ZrC dielectric function 0.06–6 eV.
-- A. K. Singh et al., *Appl. Opt.* **54**, 253 (2015), DOI 10.1364/AO.54.000253 — soft X-ray optical constants 60–200 Å.
+- C. Martin et al., *J. Nucl. Mater.* **489**, 286 (2017), DOI [10.1016/j.jnucmat.2017.02.041](https://doi.org/10.1016/j.jnucmat.2017.02.041) — PLD nanocrystalline ZrC dielectric function 0.06–6 eV.
+- A. K. Singh et al., *Appl. Opt.* **54**, 253 (2015), DOI [10.1364/AO.54.000253](https://doi.org/10.1364/AO.54.000253) — soft X-ray optical constants 60–200 Å.
 - Materials Project entry mp-2795 — relaxed-cell density.
 
 ---
@@ -547,7 +547,7 @@ Representative outputs of the resulting model: at 589 nm n ≈ 0.78, k ≈ 1.55 
 
 **Optical model — Pflüger / Palik tabulated n,k with linear interpolation.** The refractiveindex.info entry consolidates two complementary sources for single-crystal TiC_{1.0} at room temperature:
 
-1. **Pflüger, Fink, Weber, Bohnen, Crecelius**, "Dielectric properties of TiC_x, TiN_x, VC_x, and VN_x from 1.5 to 40 eV determined by electron-energy-loss spectroscopy," *Phys. Rev. B* **30**, 1155 (1984), DOI 10.1103/PhysRevB.30.1155 — EELS data with Kramers–Kronig extraction over **1.5–40 eV** (0.031–0.83 µm).
+1. **Pflüger, Fink, Weber, Bohnen, Crecelius**, "Dielectric properties of TiC_x, TiN_x, VC_x, and VN_x from 1.5 to 40 eV determined by electron-energy-loss spectroscopy," *Phys. Rev. B* **30**, 1155 (1984), DOI [10.1103/PhysRevB.30.1155](https://doi.org/10.1103/PhysRevB.30.1155) — EELS data with Kramers–Kronig extraction over **1.5–40 eV** (0.031–0.83 µm).
 2. **Pflüger and Fink**, "Determination of optical constants by high-energy electron-energy-loss spectroscopy (EELS)," in *Handbook of Optical Constants of Solids II* (E. D. Palik, ed.), Academic Press 1991, pp. 293–310 — extension and tabulation including the low-energy tail down to 0.5 eV.
 
 The refractiveindex.info digitization gives **52 (λ, n, k) points across 0.0311–2.48 µm** combining both sources; the code stores this consolidated table and uses linear interpolation. Representative values:
@@ -573,11 +573,11 @@ The refractiveindex.info digitization gives **52 (λ, n, k) points across 0.0311
 **Key caveats.**
 - **Stoichiometry.** Pflüger studied TiC_{1.0}; real samples vary x in TiC_x from ~0.5 to 1.0. Sub-stoichiometric TiC_{0.6} has lower n and somewhat higher k in the visible; the Mie model assumes near-stoichiometric.
 - **Surface oxide.** Polished TiC samples typically carry a 1–3 nm TiO₂ overlayer that affects measured reflectance in the UV. Pflüger's EELS-derived constants are oxide-corrected via Kramers–Kronig; bulk-material Mie calculations are reasonable, but small-particle (<50 nm) calculations need a core–shell treatment.
-- **Koide et al. (1993)** *Jpn. J. Appl. Phys.* **32**, 1130, DOI 10.1143/JJAP.32.1130, reported single-crystal n,k for TiC_{0.95} from 0.8–80 eV via reflectance + Kramers–Kronig. This dataset is not on refractiveindex.info but is cited in the open literature; Koide and Pflüger agree to within ~5% in the visible/near-IR.
+- **Koide et al. (1993)** *Jpn. J. Appl. Phys.* **32**, 1130, DOI [10.1143/JJAP.32.1130](https://doi.org/10.1143/JJAP.32.1130), reported single-crystal n,k for TiC_{0.95} from 0.8–80 eV via reflectance + Kramers–Kronig. This dataset is not on refractiveindex.info but is cited in the open literature; Koide and Pflüger agree to within ~5% in the visible/near-IR.
 
 **Primary references:**
-- J. Pflüger et al., *Phys. Rev. B* **30**, 1155 (1984), DOI 10.1103/PhysRevB.30.1155 — primary tabulated n,k for TiC_{1.0}.
-- T. Koide et al., *Jpn. J. Appl. Phys.* **32**, 1130 (1993), DOI 10.1143/JJAP.32.1130 — alternative single-crystal dataset for TiC_{0.95}.
+- J. Pflüger et al., *Phys. Rev. B* **30**, 1155 (1984), DOI [10.1103/PhysRevB.30.1155](https://doi.org/10.1103/PhysRevB.30.1155) — primary tabulated n,k for TiC_{1.0}.
+- T. Koide et al., *Jpn. J. Appl. Phys.* **32**, 1130 (1993), DOI [10.1143/JJAP.32.1130](https://doi.org/10.1143/JJAP.32.1130) — alternative single-crystal dataset for TiC_{0.95}.
 - Materials Project entry mp-631 — relaxed-cell density.
 
 ---
@@ -588,7 +588,7 @@ The refractiveindex.info digitization gives **52 (λ, n, k) points across 0.0311
 
 **Density:** ρ_x = 4 × 153.33 / (6.022e23 × 169.95e-24) = **5.99 g/cm³** for pure stoichiometric BaO. Many secondary compilations quote 5.72 g/cm³, but that value reflects lab BaO with residual BaCO₃/Ba(OH)₂ contamination, not the pure crystal. The Materials Project entry **mp-1342** reports 5.75 g/cm³ (PBE-relaxed). Per the project-wide policy (X-ray density for pure-phase Mie mass loading), the code uses **5990 kg/m³**.
 
-**Optical model — Anderson & Hensley (1975) Cauchy plus IR Lorentz.** In the visible, the primary refractive index is **n_D = 1.9841 ± 0.0002 at 589 nm**, measured by C. J. Anderson and E. B. Hensley, "Index of refraction of barium oxide," *J. Appl. Phys.* **46**, 443 (1975), DOI 10.1063/1.322255. The paper reports n across 435–629 nm on prism-shape single crystals. The two-term Cauchy fit (Shannon et al., *J. Phys. Chem. Ref. Data* **31**, 931 (2002), DOI 10.1063/1.1497384) is **n²(λ) = A + B/λ² with A = 3.7822, B = 0.0571 µm²**; the code uses this in 0.4–0.7 µm. Validation: A + B/(0.589)² = 3.7822 + 0.1646 = 3.9468, n = 1.9866 (within 0.13% of n_D = 1.9841).
+**Optical model — Anderson & Hensley (1975) Cauchy plus IR Lorentz.** In the visible, the primary refractive index is **n_D = 1.9841 ± 0.0002 at 589 nm**, measured by C. J. Anderson and E. B. Hensley, "Index of refraction of barium oxide," *J. Appl. Phys.* **46**, 443 (1975), DOI [10.1063/1.322255](https://doi.org/10.1063/1.322255). The paper reports n across 435–629 nm on prism-shape single crystals. The two-term Cauchy fit (Shannon et al., *J. Phys. Chem. Ref. Data* **31**, 931 (2002), DOI [10.1063/1.1497384](https://doi.org/10.1063/1.1497384) is **n²(λ) = A + B/λ² with A = 3.7822, B = 0.0571 µm²**; the code uses this in 0.4–0.7 µm. Validation: A + B/(0.589)² = 3.7822 + 0.1646 = 3.9468, n = 1.9866 (within 0.13% of n_D = 1.9841).
 
 **DFPT dielectric data (Materials Project mp-1342):**
 - ε∞ = 4.26 (isotropic; rocksalt) → n_∞ = √4.26 = **2.064**, ~4% higher than Anderson–Hensley n_D = 1.984 — the standard PBE 3–5% overestimate of static electronic permittivity.
@@ -610,9 +610,9 @@ This reproduces ε₀ = ε∞ + Δε = 3.937 + 30.06 = **34.0** by construction.
 - **Cathode applications.** BaO is widely used in oxide-coated cathodes where surface stoichiometry and B-site donor doping differ from bulk; the present model applies to undoped bulk single-crystal BaO.
 
 **Primary references:**
-- C. J. Anderson and E. B. Hensley, *J. Appl. Phys.* **46**, 443 (1975), DOI 10.1063/1.322255 — Cauchy fit to visible n on prism single crystals.
-- R. D. Shannon et al., *J. Phys. Chem. Ref. Data* **31**, 931 (2002), DOI 10.1063/1.1497384 — handbook compilation, source for Cauchy coefficients used.
-- R. D. Shannon et al., *Am. Mineral.* **102**, 1815 (2017), DOI 10.2138/am-2017-6144 — updated compilation.
+- C. J. Anderson and E. B. Hensley, *J. Appl. Phys.* **46**, 443 (1975), DOI [10.1063/1.322255](https://doi.org/10.1063/1.322255) — Cauchy fit to visible n on prism single crystals.
+- R. D. Shannon et al., *J. Phys. Chem. Ref. Data* **31**, 931 (2002), DOI [10.1063/1.1497384](https://doi.org/10.1063/1.1497384) — handbook compilation, source for Cauchy coefficients used.
+- R. D. Shannon et al., *Am. Mineral.* **102**, 1815 (2017), DOI [10.2138/am-2017-6144](https://doi.org/10.2138/am-2017-6144) — updated compilation.
 - Materials Project entry mp-1342 — relaxed-cell density and PBE gap; DFPT ε∞ listed for comparison only (operative ε∞ is anchored to the measured n_D² = 3.937), DFPT ε₀ rejected per caveat above.
 
 ---
@@ -640,7 +640,6 @@ At λ = 589 nm this gives n ≈ 1.7, k ≈ 1.0; in the near-IR n approaches 2.0 
 
 **Primary references:**
 - Materials Project entry mp-1214623 — Ia3̄ anti-bixbyite structure, density, PBE gap.
-- E. T. Keve and A. C. Skapski, *J. Chem. Soc. A* 1842 (1971), DOI 10.1039/J19710001842 — earliest open crystallographic work on barium nitrides.
 
 ---
 
@@ -650,7 +649,7 @@ At λ = 589 nm this gives n ≈ 1.7, k ≈ 1.0; in the near-IR n approaches 2.0 
 
 **Density:** ρ_x = 16 × 100.95 / (6.022e23 × 985.96e-24) = **2.72 g/cm³**, matching the handbook value 2.712 g/cm³. The Materials Project entry **mp-1559** reports 2.66 g/cm³ (PBE-relaxed, 2% low). The code uses **2710 kg/m³**.
 
-**Optical model — DFT-anchored Lorentz reconstruction.** No measured n(λ),k(λ) spectra for solid Mg₃N₂ exist in any open optical database. Goto et al., *Electrochim. Acta* **50**, 4407 (2005), DOI 10.1016/j.electacta.2005.04.004, measured electrochemically deposited Mg₃N₂ films and reported optical band gaps E_g^direct ≈ 3.15 eV (~393 nm) and E_g^indirect ≈ 2.85 eV (~435 nm). Wenzel et al., *Microsc. Microanal.* **26**, 102 (2020), DOI 10.1017/S1431927619015307, performed ELNES on polycrystalline and nanoporous Mg₃N₂, confirming the wide-gap character.
+**Optical model — DFT-anchored Lorentz reconstruction.** No measured n(λ),k(λ) spectra for solid Mg₃N₂ exist in any open optical database. Goto et al., *Electrochim. Acta* **50**, 4407 (2005), DOI [10.1016/j.electacta.2005.04.004](https://doi.org/10.1016/j.electacta.2005.04.004), measured electrochemically deposited Mg₃N₂ films and reported optical band gaps E_g^direct ≈ 3.15 eV (~393 nm) and E_g^indirect ≈ 2.85 eV (~435 nm). Wenzel et al., *Microsc. Microanal.* **26**, 102 (2020), DOI [10.1017/S1431927619015307](https://doi.org/10.1017/S1431927619015307), performed ELNES on polycrystalline and nanoporous Mg₃N₂, confirming the wide-gap character.
 
 The reconstruction uses ε∞ ≈ 4.5 (estimated from the Goto bandgap via a Penn-model equation; Materials Project mp-1559 reports PBE gap 1.51 eV — severely underestimated — but does not list the dielectric tensor in the public summary). The IR-active modes for the Ia3̄ anti-bixbyite cluster strongly between 400 and 700 cm⁻¹ (Mg–N stretching modes); the code uses three Lorentz oscillators:
 
@@ -668,16 +667,16 @@ These reproduce ε₀ ≈ 9.8 by construction. Visible-region n = √ε∞ ≈ *
 - **Polycrystalline assumption.** The Ia3̄ structure is optically isotropic, so orientation averaging is trivial; the model directly gives the bulk-particle n.
 
 **Primary references:**
-- T. Goto et al., *Electrochim. Acta* **50**, 4407 (2005), DOI 10.1016/j.electacta.2005.04.004 — film bandgap measurement.
-- L. Wenzel et al., *Microsc. Microanal.* **26**, 102 (2020), DOI 10.1017/S1431927619015307 — ELNES of polycrystalline and nanoporous Mg₃N₂.
-- D. E. Partin, D. J. Williams, M. O'Keeffe, *J. Solid State Chem.* **132**, 56 (1997), DOI 10.1006/jssc.1997.7407 — anti-bixbyite structure refinement.
+- T. Goto et al., *Electrochim. Acta* **50**, 4407 (2005), DOI [10.1016/j.electacta.2005.04.004](https://doi.org/10.1016/j.electacta.2005.04.004) — film bandgap measurement.
+- L. Wenzel et al., *Microsc. Microanal.* **26**, 102 (2020), DOI [10.1017/S1431927619015307](https://doi.org/10.1017/S1431927619015307) — ELNES of polycrystalline and nanoporous Mg₃N₂.
+- D. E. Partin, D. J. Williams, M. O'Keeffe, *J. Solid State Chem.* **132**, 56 (1997), DOI [10.1006/jssc.1997.7407](https://doi.org/10.1006/jssc.1997.7407) — anti-bixbyite structure refinement.
 - Materials Project entry mp-1559 — relaxed-cell density.
 
 ---
 
 ## 24. NaAlO₂ uses DFPT plus HSDB handbook scalars
 
-**Phase:** at room temperature anhydrous NaAlO₂ adopts orthorhombic Pna2₁ (Z = 8). Structure from Antao & Hassan, *J. Solid State Chem.* **117**, 156 (1995), DOI 10.1006/jssc.1995.1111.
+**Phase:** at room temperature anhydrous NaAlO₂ adopts orthorhombic Pna2₁ (Z = 8). Structure from Antao & Hassan, *J. Solid State Chem.* **117**, 156 (1995), DOI [10.1006/jssc.1995.1111](https://doi.org/10.1006/jssc.1995.1111).
 
 **Density:** the Materials Project entry **mp-9212** reports a PBE-relaxed density of **2.67 g/cm³**. The crystallographic density from Antao & Hassan cell parameters gives ρ_x ≈ 2.75 g/cm³ — the conventional handbook value. The code uses **2750 kg/m³**.
 
@@ -707,7 +706,7 @@ These reproduce ε₀ = ε∞ + Σ Δεⱼ ≈ 5.93 by construction, within 0.4%
 - **Polymorphism.** A high-T tetragonal P4₁2₁2 phase exists above ~500 °C. The model applies to RT Pna2₁.
 
 **Primary references:**
-- S. M. Antao and I. Hassan, *J. Solid State Chem.* **117**, 156 (1995), DOI 10.1006/jssc.1995.1111 — Pna2₁ structure.
+- S. M. Antao and I. Hassan, *J. Solid State Chem.* **117**, 156 (1995), DOI [10.1006/jssc.1995.1111](https://doi.org/10.1006/jssc.1995.1111) — Pna2₁ structure.
 - PubChem CID 13927 / HSDB — handbook n scalars.
 - Materials Project entry mp-9212 — DFPT ε∞/ε₀ tensors.
 
@@ -719,7 +718,7 @@ These reproduce ε₀ = ε∞ + Σ Δεⱼ ≈ 5.93 by construction, within 0.4%
 
 **Density:** ρ_x = 4 × 103.62 / (6.022e23 × 137.39e-24) = **5.01 g/cm³**, matching the CRC handbook value 4.70–5.10 g/cm³ (composition-dependent; the value depends on impurity Sr₂O₂ content). The Materials Project entry **mp-2472** reports 4.88 g/cm³ (PBE-relaxed). The code uses **5010 kg/m³**.
 
-**Optical model — Pynchon & Sieckmann (1966) prism measurements plus DFPT and IR Lorentz.** In the visible, the primary data come from G. E. Pynchon and E. F. Sieckmann, "Refractive index of strontium oxide," *Phys. Rev.* **143**, 595 (1966), DOI 10.1103/PhysRev.143.595, prism minimum-deviation measurements on single crystals grown by ohmic-heating from the melt. The paper reports n at six visible wavelengths. The two endpoint values quoted in the open abstract are:
+**Optical model — Pynchon & Sieckmann (1966) prism measurements plus DFPT and IR Lorentz.** In the visible, the primary data come from G. E. Pynchon and E. F. Sieckmann, "Refractive index of strontium oxide," *Phys. Rev.* **143**, 595 (1966), DOI [10.1103/PhysRev.143.595](https://doi.org/10.1103/PhysRev.143.595), prism minimum-deviation measurements on single crystals grown by ohmic-heating from the melt. The paper reports n at six visible wavelengths. The two endpoint values quoted in the open abstract are:
 
 | λ (Å) | λ (nm) | n |
 |------:|-------:|---:|
@@ -750,8 +749,8 @@ The four intermediate measurements (typically reported at standard Hg/Cd/Na spec
 - **Birefringence: none** (Fm3̄m is cubic).
 
 **Primary references:**
-- G. E. Pynchon and E. F. Sieckmann, *Phys. Rev.* **143**, 595 (1966), DOI 10.1103/PhysRev.143.595 — single-crystal visible refractive index, six points.
-- J. L. Jacobson and E. R. Nixon, *J. Phys. Chem. Solids* **29**, 1067 (1968), DOI 10.1016/0022-3697(68)90233-3 — IR reflectance and lattice vibrations of CaO and SrO.
+- G. E. Pynchon and E. F. Sieckmann, *Phys. Rev.* **143**, 595 (1966), DOI [10.1103/PhysRev.143.595](https://doi.org/10.1103/PhysRev.143.595) — single-crystal visible refractive index, six points.
+- J. L. Jacobson and E. R. Nixon, *J. Phys. Chem. Solids* **29**, 1067 (1968), DOI [10.1016/0022-3697(68)90233-3](https://doi.org/10.1016/0022-3697%2868%2990233-3) — IR reflectance and lattice vibrations of CaO and SrO.
 - Materials Project entry mp-2472 — DFPT ε∞/ε₀.
 
 ---
@@ -765,9 +764,9 @@ The four intermediate measurements (typically reported at standard Hg/Cd/Na spec
 **Optical model — film visible data plus α-AlF₃ DFPT and Lorentz.** AlF₃ has no published bulk single-crystal n(λ),k(λ) spectrum, but **three independent film datasets** plus Materials Project DFPT provide a consistent picture:
 
 **Film data (visible, used directly for thin-flake / coating applications):**
-- **Jensen (1970)**, *Thin Solid Films* **5**, 415, DOI 10.1016/0040-6090(70)90052-0 — vacuum-evaporated AlF₃ film: **n ≈ 1.385 across 0.25–1.0 µm**, essentially without dispersion; k ≈ 0 below absorption bands near 3 and 6 µm.
-- **Liu et al. (2004)**, *Vacuum* **75**, 159, DOI 10.1016/j.vacuum.2004.01.009 — sputtered film at **193 nm**: **n = 1.37, k = 6·10⁻⁴**.
-- **Plumey et al. (2010)**, *Opt. Commun.* **283**, 1942, DOI 10.1016/j.optcom.2009.11.062 — VUV thin films: absolute **n,k in 60–124 nm**.
+- **Jensen (1970)**, *Thin Solid Films* **5**, 415, DOI [10.1016/0040-6090(70)90052-0](https://doi.org/10.1016/0040-6090%2870%2990052-0) — vacuum-evaporated AlF₃ film: **n ≈ 1.385 across 0.25–1.0 µm**, essentially without dispersion; k ≈ 0 below absorption bands near 3 and 6 µm.
+- **Liu et al. (2004)**, *Vacuum* **75**, 159, DOI [10.1016/j.vacuum.2004.01.009](https://doi.org/10.1016/j.vacuum.2004.01.009) — sputtered film at **193 nm**: **n = 1.37, k = 6·10⁻⁴**.
+- **Plumey et al. (2010)**, *Opt. Commun.* **283**, 1942, DOI [10.1016/j.optcom.2009.11.062](https://doi.org/10.1016/j.optcom.2009.11.062) — VUV thin films: absolute **n,k in 60–124 nm**.
 
 These film values cover deep-UV through near-IR consistently. The code uses Jensen's near-constant n = 1.385 across 0.25–1.0 µm (k = 0).
 
@@ -793,10 +792,10 @@ These reproduce ε₀ ≈ 4.94 by construction, matching DFPT to within 1%. AlF�
 - **DUV applications.** AlF₃ is widely used as an antireflection coating at 193 nm (ArF excimer wavelength), where Liu et al.'s film data is the authoritative source. The code's near-constant Jensen value n = 1.385 is approximate at 193 nm; for ArF-specific calculations use 1.37 directly.
 
 **Primary references:**
-- B. Jensen, *Thin Solid Films* **5**, 415 (1970), DOI 10.1016/0040-6090(70)90052-0 — evaporated AlF₃ films, visible/near-IR.
-- Z. Liu et al., *Vacuum* **75**, 159 (2004), DOI 10.1016/j.vacuum.2004.01.009 — sputtered AlF₃ at 193 nm.
-- J. Plumey et al., *Opt. Commun.* **283**, 1942 (2010), DOI 10.1016/j.optcom.2009.11.062 — VUV 60–124 nm.
-- P. Daniel, A. Bulou, et al., *J. Phys.: Condens. Matter* **2**, 5663 (1990), DOI 10.1088/0953-8984/2/26/004 — α-AlF₃ Raman + phase transition.
+- B. Jensen, *Thin Solid Films* **5**, 415 (1970), DOI [10.1016/0040-6090(70)90052-0](https://doi.org/10.1016/0040-6090%2870%2990052-0) — evaporated AlF₃ films, visible/near-IR.
+- Z. Liu et al., *Vacuum* **75**, 159 (2004), DOI [10.1016/j.vacuum.2004.01.009](https://doi.org/10.1016/j.vacuum.2004.01.009) — sputtered AlF₃ at 193 nm.
+- J. Plumey et al., *Opt. Commun.* **283**, 1942 (2010), DOI [10.1016/j.optcom.2009.11.062](https://doi.org/10.1016/j.optcom.2009.11.062) — VUV 60–124 nm.
+- P. Daniel, A. Bulou, et al., *J. Phys.: Condens. Matter* **2**, 5663 (1990), DOI [10.1088/0953-8984/2/26/004](https://doi.org/10.1088/0953-8984/2/26/004) — α-AlF₃ Raman + phase transition.
 - Materials Project entry mp-468 — DFPT ε∞/ε₀ for α-AlF₃.
 
 ---
