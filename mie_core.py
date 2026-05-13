@@ -82,6 +82,22 @@ MATERIALS_DB = [
     ("MgO", 3580.0),
     ("Al2O3", 3987.0),
     ("CuZn", 8530.0),
+    ("AlF3", 2880.0),
+    ("AlN", 3260.0),
+    ("Ba3N2", 4780.0),
+    ("BaO", 5990.0),
+    ("K2CO3", 2428.0),
+    ("KAlO2", 2840.0),
+    ("KCN", 1520.0),
+    ("MgAl2O4", 3580.0),
+    ("Mg3N2", 2710.0),
+    ("Na2CO3", 2540.0),
+    ("NaAlO2", 2750.0),
+    ("SrO", 5010.0),
+    ("TiC", 4930.0),
+    ("YSZ", 6000.0),
+    ("ZrC", 6630.0),
+    ("ZrO2", 5810.0),
 ]
 
 ConcMode: TypeAlias = Literal["mass", "number"]
@@ -315,6 +331,312 @@ def _ri_cuzn(lam_um: float) -> complex:
     return complex(n, k)
 
 
+def _lorentz_eps(lam_um: float, eps_inf: float,
+                 modes: Iterable[tuple[float, float, float]]) -> complex:
+    """Multi-oscillator Lorentz dielectric. modes: (omega0_cm-1, Δε, γ_cm-1)."""
+    nu = 1e4 / lam_um
+    eps = complex(eps_inf, 0.0)
+    for nu0, de, gj in modes:
+        eps += de * nu0**2 / (nu0**2 - nu**2 - 1j * nu * gj)
+    return eps
+
+
+def _ri_aln(lam_um: float) -> complex:
+    # Pastrňák & Roskovcová 1966 Sellmeier (o, e), orientation-averaged for
+    # polycrystalline particles. Valid 0.22–5 µm. Beyond 5 µm a four-oscillator
+    # Lorentz IR model anchored to DFPT (mp-661) and Kischkat 2012 phonon positions.
+    if 0.22 <= lam_um <= 5.0:
+        ls = lam_um**2
+        n2_o = 1.0 + 2.1399 + 1.3786 * ls / (ls - 0.1715**2) + 3.861 * ls / (ls - 15.03**2)
+        n2_e = 1.0 + 2.0729 + 1.6173 * ls / (ls - 0.1746**2) + 4.139 * ls / (ls - 15.03**2)
+        if n2_o < 1.0:
+            n2_o = 1.0
+        if n2_e < 1.0:
+            n2_e = 1.0
+        n_avg = np.sqrt((2.0 * n2_o + n2_e) / 3.0)
+        return complex(n_avg, 0.0)
+    # IR Lorentz: ε∞=4.54 (DFPT mp-661 orientation-averaged);
+    # E1(TO)≈670, A1(TO)≈610, plus subsidiary modes near 245 (E2_low) and 890 (A1_LO-edge).
+    eps_inf = 4.54
+    modes = [
+        (670.0, 1.8, 14.0),   # E1 TO
+        (610.0, 2.0, 14.0),   # A1 TO
+        (890.0, 0.3, 40.0),   # LO-edge mode (engineering)
+        (245.0, 0.1, 25.0),   # acoustic-edge
+    ]
+    eps = _lorentz_eps(lam_um, eps_inf, modes)
+    nc = np.sqrt(eps)
+    return complex(abs(nc.real), abs(nc.imag))
+
+
+def _ri_mgal2o4(lam_um: float) -> complex:
+    # Tropf & Thomas 1991 (Palik II) Sellmeier, 0.35–5.5 µm.
+    # Coefficients from refractiveindex.info: (0, 1.8938, 0.09942, 3.0755, 15.826).
+    if 0.35 <= lam_um <= 5.5:
+        ls = lam_um**2
+        n_sq = 1.0 + 1.8938 * ls / (ls - 0.09942**2) + 3.0755 * ls / (ls - 15.826**2)
+        if n_sq < 1.0:
+            n_sq = 1.0
+        return complex(np.sqrt(n_sq), 0.0)
+    # IR Lorentz beyond 5.5 µm: 4 T1u TO modes; ε∞=3.08, Δε_total=5.40 (DFPT mp-3536).
+    eps_inf = 3.08
+    modes = [
+        (670.0, 1.7, 40.0),
+        (525.0, 1.5, 35.0),
+        (430.0, 1.7, 35.0),
+        (305.0, 0.5, 30.0),
+    ]
+    eps = _lorentz_eps(lam_um, eps_inf, modes)
+    nc = np.sqrt(eps)
+    return complex(abs(nc.real), abs(nc.imag))
+
+
+def _ri_ysz(lam_um: float) -> complex:
+    # Wood & Nassau 1982, cubic ZrO2 + 12 mol% Y2O3. Strict scope: 0.361–5.135 µm.
+    # Outside, clamp to boundary value (do not silently substitute Synowicki/CaO-stabilized).
+    lo, hi = 0.361, 5.135
+    lam = min(max(lam_um, lo), hi)
+    ls = lam**2
+    n_sq = 1.0
+    n_sq += 1.347091 * ls / (ls - 0.062543**2)
+    n_sq += 2.117788 * ls / (ls - 0.166739**2)
+    n_sq += 9.452943 * ls / (ls - 24.320570**2)
+    if n_sq < 1.0:
+        n_sq = 1.0
+    return complex(np.sqrt(n_sq), 0.0)
+
+
+def _ri_zro2(lam_um: float) -> complex:
+    # Monoclinic baddeleyite ZrO2 (P2_1/c). No measured single-crystal n,k in open
+    # sources; DFPT-anchored (mp-2858) + Bouvier 2000 Raman mode positions.
+    # ε∞ orientation-averaged = 5.34 → n_∞ = 2.31. Five IR Lorentz oscillators reproduce
+    # Δε_lattice = 15.94 (DFPT total ε₀ = 21.28).
+    eps_inf = 5.34
+    modes = [
+        (180.0, 5.0, 25.0),
+        (350.0, 4.5, 30.0),
+        (500.0, 4.0, 35.0),
+        (620.0, 1.8, 40.0),
+        (730.0, 0.6, 50.0),
+    ]
+    eps = _lorentz_eps(lam_um, eps_inf, modes)
+    nc = np.sqrt(eps)
+    return complex(abs(nc.real), abs(nc.imag))
+
+
+def _ri_tic(lam_um: float) -> complex:
+    # Pflüger/Palik 1984/1991 EELS-derived n,k for single-crystal TiC_{1.0}, 52 points
+    # spanning 0.0311–2.48 µm. Linear interpolation; beyond 2.48 µm a Drude tail extends.
+    n = float(np.interp(lam_um, _TIC_LAM, _TIC_N))
+    k = float(np.interp(lam_um, _TIC_LAM, _TIC_K))
+    if lam_um > _TIC_LAM[-1]:
+        # Drude extrapolation anchored to (n, k) at 2.48 µm.
+        # Use simple ω^-1 scaling for k and gentle rise for n.
+        scale = lam_um / _TIC_LAM[-1]
+        n = _TIC_N[-1] * scale**0.6
+        k = _TIC_K[-1] * scale**0.8
+    return complex(n, k)
+
+
+_TIC_LAM = np.array([
+    0.03107, 0.03179, 0.03263, 0.03351, 0.03444, 0.03542, 0.03646, 0.03757,
+    0.03874, 0.03999, 0.04133, 0.04275, 0.04428, 0.04592, 0.04768, 0.04959,
+    0.05166, 0.05390, 0.05635, 0.05904, 0.06199, 0.06525, 0.06888, 0.07293,
+    0.07749, 0.08265, 0.08856, 0.09537, 0.1033, 0.1078, 0.1127, 0.1181,
+    0.1240, 0.1305, 0.1378, 0.1459, 0.1550, 0.1653, 0.1771, 0.1907,
+    0.2066, 0.2254, 0.2480, 0.2755, 0.3100, 0.3542, 0.4133, 0.4959,
+    0.6199, 0.8266, 1.2399, 2.4797,
+])
+_TIC_N = np.array([
+    0.840, 0.853, 0.863, 0.853, 0.839, 0.826, 0.808, 0.785,
+    0.762, 0.734, 0.709, 0.679, 0.654, 0.627, 0.603, 0.579,
+    0.547, 0.523, 0.523, 0.551, 0.603, 0.657, 0.688, 0.706,
+    0.723, 0.747, 0.870, 0.959, 0.942, 0.867, 0.745, 0.725,
+    0.801, 0.955, 1.000, 1.070, 1.120, 1.210, 1.420, 1.430,
+    1.520, 1.740, 1.960, 2.160, 2.300, 2.570, 2.780, 2.950,
+    3.050, 3.510, 3.970, 5.440,
+])
+_TIC_K = np.array([
+    0.0505, 0.0101, 0.0896, 0.0841, 0.0797, 0.0795, 0.0810, 0.0830,
+    0.0892, 0.107,  0.123,  0.145,  0.174,  0.210,  0.248,  0.291,
+    0.344,  0.421,  0.516,  0.604,  0.675,  0.729,  0.750,  0.801,
+    0.859,  0.962,  1.030,  1.020,  0.980,  0.960,  1.060,  1.250,
+    1.440,  1.500,  1.550,  1.630,  1.690,  1.840,  1.890,  1.860,
+    2.020,  2.200,  2.250,  2.310,  2.330,  2.340,  2.430,  2.380,
+    2.670,  3.070,  3.780,  5.540,
+])
+
+
+def _ri_zrc(lam_um: float) -> complex:
+    # Drude + single Lorentz hybrid; bulk single-crystal n,k for stoichiometric ZrC
+    # not located in open sources. Parameters chosen to match Martin 2017 PLD-film
+    # qualitative TiC-family metallic IR rise. Absolute visible values are
+    # engineering-grade: model yields n≈0.78, k≈1.55 at 589 nm (Drude-dominated).
+    hc_eV_um = 1.23984198
+    omega = hc_eV_um / lam_um
+    eps_inf = 3.5
+    wp, G0 = 6.8, 0.3
+    eps = eps_inf - wp**2 / (omega * (omega + 1j * G0))
+    w1, de1, g1 = 4.5, 4.0, 1.5
+    eps += de1 * w1**2 / (w1**2 - omega**2 - 1j * omega * g1)
+    nc = np.sqrt(eps)
+    return complex(abs(nc.real), abs(nc.imag))
+
+
+def _ri_bao(lam_um: float) -> complex:
+    # Anderson & Hensley 1975 Cauchy (0.4–0.7 µm, extrapolated to 2 µm) + single
+    # IR Lorentz anchored to ε∞=n_D²=3.937, TO=132 cm-1, ε₀≈34 (compilation).
+    if lam_um < 2.0:
+        n_sq = 3.7822 + 0.0571 / (lam_um**2)
+        if n_sq < 1.0:
+            n_sq = 1.0
+        return complex(np.sqrt(n_sq), 0.0)
+    eps_inf = 3.937
+    modes = [(132.0, 30.06, 15.0)]
+    eps = _lorentz_eps(lam_um, eps_inf, modes)
+    nc = np.sqrt(eps)
+    return complex(abs(nc.real), abs(nc.imag))
+
+
+def _ri_sro(lam_um: float) -> complex:
+    # Pynchon & Sieckmann 1966 Cauchy through two confirmed endpoints
+    # (A=3.3213, B=0.06348 µm²) for λ < 2 µm. IR Lorentz beyond, anchored to
+    # ε∞=A=3.3213 (Cauchy asymptote), TO=227 cm-1 (Jacobson & Nixon 1968),
+    # ε₀=20.4 (MP DFPT mp-2472). LST gives LO ≈ 563 cm-1.
+    if lam_um < 2.0:
+        n_sq = 3.3213 + 0.06348 / (lam_um**2)
+        if n_sq < 1.0:
+            n_sq = 1.0
+        return complex(np.sqrt(n_sq), 0.0)
+    eps_inf = 3.3213
+    modes = [(227.0, 17.08, 12.0)]
+    eps = _lorentz_eps(lam_um, eps_inf, modes)
+    nc = np.sqrt(eps)
+    return complex(abs(nc.real), abs(nc.imag))
+
+
+def _ri_k2co3(lam_um: float) -> complex:
+    # Anhydrous β-K2CO3 (P2_1/c). No measured n,k; full Lorentz reconstruction:
+    # ε∞≈2.30 (engineering, no public DFPT tensor on mp-3963); CO3²⁻ internal modes
+    # ν3 (1440), ν1 (1062), ν2 (880), ν4 (706) plus lattice (200) cm-1
+    # from Brooker & Bates 1974.
+    eps_inf = 2.30
+    modes = [
+        (1440.0, 1.4, 35.0),
+        (1062.0, 0.4, 20.0),
+        (880.0,  0.6, 25.0),
+        (706.0,  0.4, 25.0),
+        (200.0,  1.4, 60.0),
+    ]
+    eps = _lorentz_eps(lam_um, eps_inf, modes)
+    nc = np.sqrt(eps)
+    return complex(abs(nc.real), abs(nc.imag))
+
+
+def _ri_na2co3(lam_um: float) -> complex:
+    # Anhydrous γ-Na2CO3 (monoclinic at 295 K, Arakcheeva & Chapuis 2005).
+    # No measured n,k; Lorentz reconstruction parallels K2CO3 with lighter-cation
+    # lattice mode at 240 cm-1.
+    eps_inf = 2.30
+    modes = [
+        (1430.0, 1.4, 35.0),
+        (1080.0, 0.4, 20.0),
+        (880.0,  0.6, 25.0),
+        (700.0,  0.4, 25.0),
+        (240.0,  1.4, 60.0),
+    ]
+    eps = _lorentz_eps(lam_um, eps_inf, modes)
+    nc = np.sqrt(eps)
+    return complex(abs(nc.real), abs(nc.imag))
+
+
+def _ri_kcn(lam_um: float) -> complex:
+    # KCN cubic Fm-3m at RT (plastic crystal). Handbook n_D=1.410 (PubChem/HSDB).
+    # ε∞=1.988=n_D²; IR: CN stretch at 2075 cm-1 plus lattice mode at 150 cm-1.
+    eps_inf = 1.988
+    modes = [
+        (2075.0, 0.2, 30.0),
+        (150.0,  0.5, 40.0),
+    ]
+    eps = _lorentz_eps(lam_um, eps_inf, modes)
+    nc = np.sqrt(eps)
+    return complex(abs(nc.real), abs(nc.imag))
+
+
+def _ri_kalo2(lam_um: float) -> complex:
+    # KAlO2 orthorhombic Pbca (Burmakin 2004). ε∞≈2.80 (transferred-from-NaAlO2 estimate;
+    # MP mp-5525 dielectric tensor not in public summary). AlO4 modes 320, 480, 720, 810 cm-1.
+    eps_inf = 2.80
+    modes = [
+        (810.0, 1.1, 30.0),
+        (720.0, 1.0, 30.0),
+        (480.0, 0.6, 30.0),
+        (320.0, 1.1, 50.0),
+    ]
+    eps = _lorentz_eps(lam_um, eps_inf, modes)
+    nc = np.sqrt(eps)
+    return complex(abs(nc.real), abs(nc.imag))
+
+
+def _ri_naalo2(lam_um: float) -> complex:
+    # NaAlO2 orthorhombic Pna2_1 (Antao & Hassan 1995). ε∞=2.627 (DFPT mp-9212),
+    # ε₀=5.913. AlO4 modes 220, 500, 700, 800 cm-1.
+    eps_inf = 2.627
+    modes = [
+        (800.0, 1.4, 30.0),
+        (700.0, 0.7, 30.0),
+        (500.0, 0.6, 30.0),
+        (220.0, 0.6, 50.0),
+    ]
+    eps = _lorentz_eps(lam_um, eps_inf, modes)
+    nc = np.sqrt(eps)
+    return complex(abs(nc.real), abs(nc.imag))
+
+
+def _ri_mg3n2(lam_um: float) -> complex:
+    # α-Mg3N2 anti-bixbyite Ia-3 (Partin 1997). Bandgap-anchored (Goto 2005 E_g≈3.15 eV).
+    # ε∞≈4.5 from Penn-model estimate (no DFPT in MP public summary).
+    # Mg–N modes 380, 520, 660 cm-1.
+    eps_inf = 4.5
+    modes = [
+        (660.0, 2.5, 40.0),
+        (520.0, 1.8, 40.0),
+        (380.0, 1.0, 50.0),
+    ]
+    eps = _lorentz_eps(lam_um, eps_inf, modes)
+    nc = np.sqrt(eps)
+    return complex(abs(nc.real), abs(nc.imag))
+
+
+def _ri_ba3n2(lam_um: float) -> complex:
+    # Ba3N2 anti-bixbyite Ia-3 (mp-1214623). Effectively semimetallic (PBE gap 0.098 eV).
+    # Drude-only placeholder; numerical accuracy low — see handbook §22.
+    hc_eV_um = 1.23984198
+    omega = hc_eV_um / lam_um
+    eps_inf = 5.0
+    wp, G0 = 3.5, 0.5
+    eps = eps_inf - wp**2 / (omega * (omega + 1j * G0))
+    nc = np.sqrt(eps)
+    return complex(abs(nc.real), abs(nc.imag))
+
+
+def _ri_alf3(lam_um: float) -> complex:
+    # α-AlF3 rhombohedral R-3c. Visible n≈1.385 from Jensen 1970 evaporated film;
+    # matches DFPT-bulk (mp-468) √ε∞ = √1.94 = 1.393 to 1%. IR Lorentz beyond 2 µm
+    # anchored to ε∞=1.94, ε₀=4.99 with three TO modes (270, 400, 670 cm-1).
+    if lam_um < 2.0:
+        return complex(1.385, 0.0)
+    eps_inf = 1.94
+    modes = [
+        (670.0, 1.5, 40.0),
+        (400.0, 1.0, 50.0),
+        (270.0, 0.5, 50.0),
+    ]
+    eps = _lorentz_eps(lam_um, eps_inf, modes)
+    nc = np.sqrt(eps)
+    return complex(abs(nc.real), abs(nc.imag))
+
+
 RI_MODELS: dict[str, RIModel] = {
     "C": _ri_carbon,
     "Mg": _ri_mg,
@@ -326,6 +648,22 @@ RI_MODELS: dict[str, RIModel] = {
     "MgO": _ri_mgo,
     "Al2O3": _ri_al2o3,
     "CuZn": _ri_cuzn,
+    "AlF3": _ri_alf3,
+    "AlN": _ri_aln,
+    "Ba3N2": _ri_ba3n2,
+    "BaO": _ri_bao,
+    "K2CO3": _ri_k2co3,
+    "KAlO2": _ri_kalo2,
+    "KCN": _ri_kcn,
+    "MgAl2O4": _ri_mgal2o4,
+    "Mg3N2": _ri_mg3n2,
+    "Na2CO3": _ri_na2co3,
+    "NaAlO2": _ri_naalo2,
+    "SrO": _ri_sro,
+    "TiC": _ri_tic,
+    "YSZ": _ri_ysz,
+    "ZrC": _ri_zrc,
+    "ZrO2": _ri_zro2,
 }
 
 

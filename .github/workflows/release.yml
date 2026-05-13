@@ -6,7 +6,7 @@ on:
       release_tag:
         description: "Release tag to update"
         required: true
-        default: "v1.0.1"
+        default: "v1.1.1"
         type: string
   push:
     tags:
@@ -133,11 +133,30 @@ jobs:
         with:
           path: release-assets
 
+      - name: Resolve release notes
+        id: release_notes
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            release_tag="${{ inputs.release_tag }}"
+          else
+            release_tag="${GITHUB_REF_NAME}"
+          fi
+
+          release_notes="docs/release-notes-${release_tag}.md"
+          if [[ ! -f "$release_notes" ]]; then
+            echo "Expected release notes file was not found: $release_notes" >&2
+            exit 1
+          fi
+
+          echo "release_tag=$release_tag" >> "$GITHUB_OUTPUT"
+          echo "release_notes=$release_notes" >> "$GITHUB_OUTPUT"
+
       - name: Publish release
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
-          body_path: docs/release-notes-v1.0.1.md
+          tag_name: ${{ steps.release_notes.outputs.release_tag }}
+          body_path: ${{ steps.release_notes.outputs.release_notes }}
           files: release-assets/**/*
           overwrite_files: true
           fail_on_unmatched_files: true
